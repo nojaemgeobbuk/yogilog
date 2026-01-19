@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -27,11 +27,36 @@ import { Colors } from "@/constants/Colors";
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const session = useYogaStore((state) => state.getSession(id));
+
+  // hydration 상태와 세션을 함께 구독
+  const hasHydrated = useYogaStore((state) => state._hasHydrated);
+  const session = useYogaStore((state) =>
+    state.sessions.find((s) => s.id === id)
+  );
   const deleteSession = useYogaStore((state) => state.deleteSession);
 
   const shareCardRef = useRef<View>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // hydration 완료 후에만 리다이렉트 판단
+  useEffect(() => {
+    if (hasHydrated && !session && id) {
+      router.replace("/");
+    }
+  }, [hasHydrated, session, id, router]);
+
+  // hydration 중이면 로딩 표시
+  if (!hasHydrated) {
+    return (
+      <SafeAreaView
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: Colors.background }}
+      >
+        <Text className="text-4xl mb-4">🧘</Text>
+        <Text style={{ color: Colors.textMuted }}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!session) {
     return (

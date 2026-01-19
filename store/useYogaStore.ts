@@ -8,6 +8,7 @@ export const useYogaStore = create<YogaStore>()(
   persist(
     (set, get) => ({
       sessions: [],
+      _hasHydrated: false,
 
       addSession: (sessionData) => {
         const newSession: YogaSession = {
@@ -40,6 +41,13 @@ export const useYogaStore = create<YogaStore>()(
     {
       name: "yogilog-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state, error) => {
+        // 성공이든 실패든 hydration 완료로 표시
+        useYogaStore.setState({ _hasHydrated: true });
+      },
+      partialize: (state) => ({
+        sessions: state.sessions,
+      }),
     }
   )
 );

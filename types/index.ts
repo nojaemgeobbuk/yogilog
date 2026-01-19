@@ -12,6 +12,7 @@ export interface YogaSession {
 
 export interface YogaStore {
   sessions: YogaSession[];
+  _hasHydrated: boolean;
   addSession: (session: Omit<YogaSession, "id">) => void;
   updateSession: (id: string, session: Partial<YogaSession>) => void;
   deleteSession: (id: string) => void;
