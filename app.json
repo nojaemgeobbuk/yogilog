@@ -8,7 +8,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "yogilog",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -49,24 +48,18 @@
           "photosPermission": "Allow Yogilog to access your photos."
         }
       ],
-      [
-        "@morrowdigital/watermelondb-expo-plugin",
-        {
-          "databases": [
-            "yogilog.db"
-          ]
-        }
-      ]
+      "./plugins/withWatermelonDB.js"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
+      "router": {
+         "origin": "https://yogilog.app"
+      },
       "eas": {
         "projectId": "80300227-943a-43b9-8d01-0aa8b6257a95"
       }
-    },
-    "owner": "noahkang"
+    }
   }
 }
