@@ -43,7 +43,11 @@
       "Bash(eas build:configure:*)",
       "Bash(eas whoami:*)",
       "Bash(eas init:*)",
-      "Bash(node scripts/refactor-svg.js:*)"
+      "Bash(node scripts/refactor-svg.js:*)",
+      "Bash(npx expo:*)",
+      "Bash(npx expo-doctor@latest:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm dedupe:*)"
     ]
   }
 }
