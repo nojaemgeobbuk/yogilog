@@ -1,6 +1,7 @@
 import { Database } from '@nozbe/watermelondb'
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
 import { schema } from './schema'
+import { migrations } from './migrations'
 import {
   Asana,
   Sequence,
@@ -10,9 +11,10 @@ import {
   PracticeLogPhoto,
 } from './models'
 
-// SQLite 어댑터 생성
+// SQLite 어댑터 생성 (마이그레이션 포함)
 const adapter = new SQLiteAdapter({
   schema,
+  migrations,
   dbName: 'yogilog',
   onSetUpError: (error) => {
     console.error('WatermelonDB setup error:', error)

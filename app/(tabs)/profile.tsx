@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,15 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy, Flame, Clock, Target, Lock, User, ChevronRight } from "lucide-react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withSpring,
+  withDelay,
+} from "react-native-reanimated";
+import { Trophy, Flame, Clock, Target, Lock, ChevronRight, Settings } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useYogaStore } from "@/store/useYogaStore";
@@ -22,6 +30,74 @@ import {
   PracticeLogAsana,
 } from "@/database";
 
+// 배지 아이콘에 Pop 애니메이션을 적용하는 컴포넌트
+interface AnimatedBadgeIconProps {
+  badge: Badge;
+  unlocked: boolean;
+  wasJustUnlocked: boolean;
+  onPress: () => void;
+}
+
+const AnimatedBadgeIcon = memo(({
+  badge,
+  unlocked,
+  wasJustUnlocked,
+  onPress,
+}: AnimatedBadgeIconProps) => {
+  const scale = useSharedValue(1);
+  const BadgeIcon = badge.icon;
+
+  useEffect(() => {
+    if (wasJustUnlocked) {
+      // Pop 애니메이션 (0.8 → 1.2 → 1.0)
+      scale.value = withSequence(
+        withSpring(0.8, { damping: 8, stiffness: 100 }),
+        withSpring(1.2, { damping: 6, stiffness: 180 }),
+        withSpring(1, { damping: 10, stiffness: 120 })
+      );
+    }
+  }, [wasJustUnlocked, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable onPress={onPress} style={[
+      styles.badgeItem,
+      unlocked ? styles.badgeUnlocked : styles.badgeLocked,
+    ]}>
+      <Animated.View style={[
+        styles.badgeIconContainer,
+        {
+          backgroundColor: unlocked
+            ? Colors.primary + "20"
+            : Colors.background,
+          borderColor: unlocked ? Colors.primary : Colors.border,
+          borderWidth: unlocked ? 2 : 1,
+          borderStyle: unlocked ? "solid" : "dashed",
+        },
+        animatedStyle,
+      ]}>
+        {unlocked ? (
+          <BadgeIcon size={24} color={Colors.primary} />
+        ) : (
+          <Lock size={20} color={Colors.textMuted} />
+        )}
+      </Animated.View>
+      <Text
+        style={[
+          styles.badgeTitle,
+          { color: unlocked ? Colors.text : Colors.textMuted },
+        ]}
+        numberOfLines={2}
+      >
+        {badge.title}
+      </Text>
+    </Pressable>
+  );
+});
+
 interface AchievementsScreenContentProps {
   practiceLogs: PracticeLog[];
   practiceLogAsanas: PracticeLogAsana[];
@@ -31,11 +107,45 @@ const AchievementsScreenContent = memo(({
   practiceLogs,
   practiceLogAsanas,
 }: AchievementsScreenContentProps) => {
+  const router = useRouter();
   // 배지 시스템은 Zustand에서 유지
   const unlockedBadgeIds = useYogaStore((state) => state.unlockedBadgeIds);
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showAllBadgesModal, setShowAllBadgesModal] = useState(false);
+
+  // 새로 해제된 배지 추적 (Pop 애니메이션용)
+  const previousUnlockedRef = useRef<Set<string>>(new Set(unlockedBadgeIds));
+  const [newlyUnlockedIds, setNewlyUnlockedIds] = useState<Set<string>>(new Set());
+
+  // 새로 해제된 배지 감지
+  useEffect(() => {
+    const previousSet = previousUnlockedRef.current;
+    const currentSet = new Set(unlockedBadgeIds);
+
+    // 새로 추가된 배지 찾기
+    const newBadges = unlockedBadgeIds.filter((id) => !previousSet.has(id));
+
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    if (newBadges.length > 0) {
+      setNewlyUnlockedIds(new Set(newBadges));
+
+      // 3초 후 새로 해제된 배지 상태 초기화
+      timeoutId = setTimeout(() => {
+        setNewlyUnlockedIds(new Set());
+      }, 3000);
+    }
+
+    previousUnlockedRef.current = currentSet;
+
+    // Cleanup: 컴포넌트 언마운트 시 타이머 정리
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [unlockedBadgeIds]);
 
   // 통계 계산
   const stats = useMemo(() => {
@@ -86,14 +196,17 @@ const AchievementsScreenContent = memo(({
   const monthlyProgress = Math.min(100, (stats.monthlySessionCount / monthlyGoal) * 100);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Achievements</Text>
-          <View style={styles.profileIcon}>
-            <User size={24} color={Colors.text} />
-          </View>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            style={styles.settingsButton}
+          >
+            <Settings size={22} color={Colors.text} />
+          </Pressable>
         </View>
 
         {/* Daily Streak Card */}
@@ -133,46 +246,16 @@ const AchievementsScreenContent = memo(({
           <View style={styles.badgeGrid}>
             {recentBadges.map((badge) => {
               const unlocked = isUnlocked(badge.id);
-              const BadgeIcon = badge.icon;
+              const wasJustUnlocked = newlyUnlockedIds.has(badge.id);
 
               return (
-                <Pressable
+                <AnimatedBadgeIcon
                   key={badge.id}
+                  badge={badge}
+                  unlocked={unlocked}
+                  wasJustUnlocked={wasJustUnlocked}
                   onPress={() => handleBadgePress(badge)}
-                  style={[
-                    styles.badgeItem,
-                    unlocked ? styles.badgeUnlocked : styles.badgeLocked,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.badgeIconContainer,
-                      {
-                        backgroundColor: unlocked
-                          ? Colors.primary + "20"
-                          : Colors.background,
-                        borderColor: unlocked ? Colors.primary : Colors.border,
-                        borderWidth: unlocked ? 2 : 1,
-                        borderStyle: unlocked ? "solid" : "dashed",
-                      },
-                    ]}
-                  >
-                    {unlocked ? (
-                      <BadgeIcon size={24} color={Colors.primary} />
-                    ) : (
-                      <Lock size={20} color={Colors.textMuted} />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.badgeTitle,
-                      { color: unlocked ? Colors.text : Colors.textMuted },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {badge.title}
-                  </Text>
-                </Pressable>
+                />
               );
             })}
           </View>
@@ -223,8 +306,8 @@ const AchievementsScreenContent = memo(({
         animationType="slide"
         onRequestClose={() => setShowAllBadgesModal(false)}
       >
-        <View style={styles.allBadgesModal}>
-          <SafeAreaView style={styles.allBadgesContainer}>
+        <SafeAreaView style={styles.allBadgesModal} edges={['top', 'bottom']}>
+          <View style={styles.allBadgesContainer}>
             {/* Modal Header */}
             <View style={styles.allBadgesHeader}>
               <Text style={styles.allBadgesTitle}>All Badges</Text>
@@ -310,8 +393,8 @@ const AchievementsScreenContent = memo(({
                 })}
               </View>
             </ScrollView>
-          </SafeAreaView>
-        </View>
+          </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Badge Detail Modal */}
@@ -470,14 +553,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: Colors.text,
     letterSpacing: -1,
+    flex: 1,
   },
-  profileIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: Colors.secondary,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.border,
   },

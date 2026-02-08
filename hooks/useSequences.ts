@@ -9,6 +9,7 @@ import {
   Sequence,
   SequenceAsana,
 } from '@/database'
+import { setCreatedTimestamps, setUpdatedTimestamp, setRawTimestamp } from '@/database/types'
 
 export interface CreateSequenceInput {
   name: string
@@ -30,8 +31,7 @@ export function useSequences() {
       // 1. Sequence 생성
       const sequence = await sequencesCollection.create((seq) => {
         seq.name = input.name
-        ;(seq as any)._raw.created_at = now
-        ;(seq as any)._raw.updated_at = now
+        setCreatedTimestamps(seq, now)
       })
 
       // 2. SequenceAsana 관계 생성
@@ -51,7 +51,7 @@ export function useSequences() {
           const newAsana = await asanasCollection.create((asana) => {
             asana.englishName = asanaName
             asana.isFavorite = false
-            ;(asana as any)._raw.created_at = now
+            setRawTimestamp(asana, 'created_at', now)
           })
           asanaId = newAsana.id
         } else {
@@ -63,7 +63,7 @@ export function useSequences() {
           record.sequenceId = sequence.id
           record.asanaId = asanaId
           record.position = i
-          ;(record as any)._raw.created_at = now
+          setRawTimestamp(record, 'created_at', now)
         })
       }
 
@@ -83,7 +83,7 @@ export function useSequences() {
       if (input.name !== undefined) {
         await sequence.update((record) => {
           record.name = input.name!
-          ;(record as any)._raw.updated_at = now
+          setUpdatedTimestamp(record, now)
         })
       }
 
@@ -109,7 +109,7 @@ export function useSequences() {
             const newAsana = await asanasCollection.create((asana) => {
               asana.englishName = asanaName
               asana.isFavorite = false
-              ;(asana as any)._raw.created_at = now
+              setRawTimestamp(asana, 'created_at', now)
             })
             asanaId = newAsana.id
           } else {
@@ -120,13 +120,13 @@ export function useSequences() {
             record.sequenceId = id
             record.asanaId = asanaId
             record.position = i
-            ;(record as any)._raw.created_at = now
+            setRawTimestamp(record, 'created_at', now)
           })
         }
 
         // updated_at 갱신
         await sequence.update((record) => {
-          ;(record as any)._raw.updated_at = now
+          setUpdatedTimestamp(record, now)
         })
       }
     })

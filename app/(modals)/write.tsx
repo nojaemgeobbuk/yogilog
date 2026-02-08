@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,15 @@ import {
   UIManager,
   StyleSheet,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as Crypto from "expo-crypto";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { X, Camera, Calendar, Save, Minus, Plus } from "lucide-react-native";
+import { X, Camera, Calendar, Save, Minus, Plus, MapPin } from "lucide-react-native";
 import {
   RichEditor,
   RichToolbar,
@@ -40,7 +42,11 @@ export default function WriteModal() {
   const router = useRouter();
   const { createPracticeLog } = usePracticeLogs();
   const clearCurrentBuild = useSequenceBuilderStore((state) => state.clearCurrentBuild);
+  const reorderAsanas = useSequenceBuilderStore((state) => state.reorderAsanas);
   const richText = useRef<RichEditor>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const noteSectionY = useRef<number>(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -49,9 +55,19 @@ export default function WriteModal() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState(3);
+  const [location, setLocation] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [asanas, setAsanas] = useState<AsanaRecord[]>([]);
   const [hashtagInput, setHashtagInput] = useState("");
+
+  // 로컬 asanas 상태가 변경되면 store와 동기화 (SequenceBuilderBar용)
+  useEffect(() => {
+    const storeAsanas = asanas.map((a) => ({
+      itemId: a.asanaId,
+      asanaName: a.name,
+    }));
+    reorderAsanas(storeAsanas);
+  }, [asanas, reorderAsanas]);
   const [hashtags, setHashtags] = useState<string[]>([]);
 
   const pickImage = async () => {
@@ -113,29 +129,28 @@ export default function WriteModal() {
   }, []);
 
   const handleClose = () => {
+    Keyboard.dismiss();
     clearCurrentBuild();
     router.back();
   };
 
   const handleSave = async () => {
     if (isSaving) return;
+    Keyboard.dismiss();
 
     setIsSaving(true);
     try {
-      // WatermelonDB에 저장 (트랜잭션으로 practice_log, practice_log_asanas, practice_log_photos 저장)
       await createPracticeLog({
         title: title || `Session ${new Date().toLocaleDateString()}`,
         date: date.toISOString(),
         duration,
         intensity,
         note,
-        // asanas 배열을 WatermelonDB 형식으로 매핑
         asanas: asanas.map((a) => ({
           name: a.name,
           note: a.note,
           status: a.status as AsanaStatus | undefined,
         })),
-        // images 배열을 photos로 매핑 (practice_log_photos 테이블에 저장됨)
         photos: images,
       });
 
@@ -163,260 +178,296 @@ export default function WriteModal() {
     <SafeAreaView
       className="flex-1"
       style={{ backgroundColor: Colors.background }}
+      edges={['top', 'bottom']}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={handleClose} style={styles.headerButton}>
-          <X size={24} color={Colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>New Session</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        nestedScrollEnabled={true}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        {/* Title */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TITLE</Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Morning Flow"
-            placeholderTextColor={Colors.textMuted}
-            style={styles.textInput}
-          />
-        </View>
+        {/* Header - 터치 시 키보드 닫힘 */}
+        <Pressable onPress={Keyboard.dismiss} style={styles.header}>
+          <Pressable onPress={handleClose} style={styles.headerButton}>
+            <X size={24} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>New Session</Text>
+          <View style={{ width: 44 }} />
+        </Pressable>
 
-        {/* Images */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>PHOTOS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.imageRow}>
-              {images.map((uri, index) => (
-                <View key={index} style={styles.imageContainer}>
-                  <Image source={{ uri }} style={styles.image} />
-                  <Pressable
-                    onPress={() => removeImage(index)}
-                    style={styles.imageRemoveButton}
-                  >
-                    <X size={14} color={Colors.background} />
-                  </Pressable>
-                </View>
-              ))}
-              <Pressable onPress={pickImage} style={styles.addImageButton}>
-                <Camera size={28} color={Colors.text} />
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled={true}
+        >
+          {/* Title */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>TITLE</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Morning Flow"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.textInput}
+            />
+          </View>
+
+          {/* Images */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>PHOTOS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.imageRow}>
+                {images.map((uri, index) => (
+                  <View key={index} style={styles.imageContainer}>
+                    <Image source={{ uri }} style={styles.image} />
+                    <Pressable
+                      onPress={() => removeImage(index)}
+                      style={styles.imageRemoveButton}
+                    >
+                      <X size={14} color={Colors.background} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable onPress={pickImage} style={styles.addImageButton}>
+                  <Camera size={28} color={Colors.text} />
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+
+          {/* Date */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>DATE</Text>
+            <Pressable
+              onPress={() => setShowDatePicker(true)}
+              style={styles.dateButton}
+            >
+              <Calendar size={20} color={Colors.primary} />
+              <Text style={styles.dateText}>{formatDate(date)}</Text>
+            </Pressable>
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selectedDate) => {
+                  setShowDatePicker(Platform.OS === "ios");
+                  if (selectedDate) setDate(selectedDate);
+                }}
+                themeVariant="light"
+              />
+            )}
+          </View>
+
+          {/* Duration */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>DURATION (minutes)</Text>
+            <View style={styles.durationRow}>
+              <Pressable
+                onPress={() => setDuration(Math.max(5, duration - 5))}
+                style={styles.durationButton}
+              >
+                <Minus size={20} color={Colors.background} />
+              </Pressable>
+              <Text style={styles.durationValue}>{duration}</Text>
+              <Pressable
+                onPress={() => setDuration(duration + 5)}
+                style={styles.durationButton}
+              >
+                <Plus size={20} color={Colors.background} />
               </Pressable>
             </View>
-          </ScrollView>
-        </View>
-
-        {/* Date */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>DATE</Text>
-          <Pressable
-            onPress={() => setShowDatePicker(true)}
-            style={styles.dateButton}
-          >
-            <Calendar size={20} color={Colors.primary} />
-            <Text style={styles.dateText}>{formatDate(date)}</Text>
-          </Pressable>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={(_, selectedDate) => {
-                setShowDatePicker(Platform.OS === "ios");
-                if (selectedDate) setDate(selectedDate);
-              }}
-              themeVariant="light"
-            />
-          )}
-        </View>
-
-        {/* Duration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>DURATION (minutes)</Text>
-          <View style={styles.durationRow}>
-            <Pressable
-              onPress={() => setDuration(Math.max(5, duration - 5))}
-              style={styles.durationButton}
-            >
-              <Minus size={20} color={Colors.background} />
-            </Pressable>
-            <Text style={styles.durationValue}>{duration}</Text>
-            <Pressable
-              onPress={() => setDuration(duration + 5)}
-              style={styles.durationButton}
-            >
-              <Plus size={20} color={Colors.background} />
-            </Pressable>
           </View>
-        </View>
 
-        {/* Intensity */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>INTENSITY</Text>
-          <View style={styles.intensityRow}>
-            {[1, 2, 3, 4, 5].map((level) => (
-              <Pressable
-                key={level}
-                onPress={() => setIntensity(level)}
-                style={[
-                  styles.intensityButton,
-                  level <= intensity && styles.intensityButtonActive,
-                ]}
-              >
-                <Text
+          {/* Intensity */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>INTENSITY</Text>
+            <View style={styles.intensityRow}>
+              {[1, 2, 3, 4, 5].map((level) => (
+                <Pressable
+                  key={level}
+                  onPress={() => setIntensity(level)}
                   style={[
-                    styles.intensityText,
-                    level <= intensity && styles.intensityTextActive,
+                    styles.intensityButton,
+                    level <= intensity && styles.intensityButtonActive,
                   ]}
                 >
-                  {level}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Asanas */}
-        <View style={[styles.section, { zIndex: 1000, position: 'relative' }]}>
-          <Text style={styles.sectionLabel}>ASANAS ({asanas.length})</Text>
-          <AsanaInput value={asanaNames} onChange={handleAddAsana} />
-
-          {asanas.length > 0 && (
-            <View style={styles.asanaList}>
-              {asanas.map((asana) => (
-                <AsanaBlockCard
-                  key={asana.asanaId}
-                  asana={asana}
-                  onUpdate={(updates) => updateAsana(asana.asanaId, updates)}
-                  onRemove={() => removeAsana(asana.asanaId)}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Hashtags */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>HASHTAGS</Text>
-          {hashtags.length > 0 && (
-            <View style={styles.tagsRow}>
-              {hashtags.map((tag, index) => (
-                <Pressable
-                  key={index}
-                  onPress={() => removeHashtag(tag)}
-                  style={styles.tagChip}
-                >
-                  <Text style={styles.tagChipText}>#{tag}</Text>
-                  <X size={14} color={Colors.text} />
+                  <Text
+                    style={[
+                      styles.intensityText,
+                      level <= intensity && styles.intensityTextActive,
+                    ]}
+                  >
+                    {level}
+                  </Text>
                 </Pressable>
               ))}
             </View>
-          )}
-          <TextInput
-            value={hashtagInput}
-            onChangeText={setHashtagInput}
-            onSubmitEditing={addHashtag}
-            placeholder="Add hashtag"
-            placeholderTextColor={Colors.textMuted}
-            style={styles.textInput}
-          />
-        </View>
+          </View>
 
-        {/* Notes - Rich Text Editor */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>NOTES</Text>
-          <View style={styles.editorContainer}>
-            <RichEditor
-              ref={richText}
-              initialContentHTML={note}
-              onChange={setNote}
-              placeholder="How was today's practice? Feel free to write..."
-              editorStyle={{
-                backgroundColor: Colors.background,
-                color: Colors.text,
-                placeholderColor: Colors.textMuted,
-                contentCSSText: `
-                  * {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    color: ${Colors.text};
-                    letter-spacing: -0.5px;
-                  }
-                  body {
-                    background-color: ${Colors.background};
-                    padding: 19px;
-                    margin: 0;
-                    min-height: 250px;
-                  }
-                  p { margin: 0 0 12px 0; line-height: 1.6; }
-                  h1, h2, h3 { color: ${Colors.text}; margin: 16px 0 8px 0; }
-                  h1 { font-size: 24px; }
-                  h2 { font-size: 20px; }
-                  h3 { font-size: 18px; }
-                  ul, ol { margin: 8px 0; padding-left: 24px; }
-                  li { margin: 4px 0; line-height: 1.5; }
-                  blockquote {
-                    border-left: 3px solid ${Colors.primary};
-                    margin: 12px 0;
-                    padding-left: 16px;
-                    color: ${Colors.textMuted};
-                    font-style: italic;
-                  }
-                `,
-                caretColor: Colors.primary,
-              }}
-              style={{ flex: 1, minHeight: 250 }}
-              initialHeight={250}
-              useContainer={true}
+          {/* Asanas */}
+          <View style={[styles.section, { zIndex: 1000, position: 'relative' }]}>
+            <Text style={styles.sectionLabel}>ASANAS ({asanas.length})</Text>
+            <AsanaInput value={asanaNames} onChange={handleAddAsana} />
+
+            {asanas.length > 0 && (
+              <View style={styles.asanaList}>
+                {asanas.map((asana) => (
+                  <AsanaBlockCard
+                    key={asana.asanaId}
+                    asana={asana}
+                    onUpdate={(updates) => updateAsana(asana.asanaId, updates)}
+                    onRemove={() => removeAsana(asana.asanaId)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Hashtags */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>HASHTAGS</Text>
+            {hashtags.length > 0 && (
+              <View style={styles.tagsRow}>
+                {hashtags.map((tag, index) => (
+                  <Pressable
+                    key={index}
+                    onPress={() => removeHashtag(tag)}
+                    style={styles.tagChip}
+                  >
+                    <Text style={styles.tagChipText}>#{tag}</Text>
+                    <X size={14} color={Colors.text} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            <TextInput
+              value={hashtagInput}
+              onChangeText={setHashtagInput}
+              onSubmitEditing={addHashtag}
+              placeholder="Add hashtag"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.textInput}
             />
           </View>
-          {/* Rich Toolbar */}
-          <RichToolbar
-            editor={richText}
-            selectedIconTint={Colors.primary}
-            iconTint={Colors.textMuted}
-            style={styles.toolbar}
-            actions={[
-              actions.setBold,
-              actions.setItalic,
-              actions.setUnderline,
-              actions.heading1,
-              actions.heading2,
-              actions.insertBulletsList,
-              actions.insertOrderedList,
-              actions.checkboxList,
-              actions.blockquote,
-              actions.undo,
-              actions.redo,
-            ]}
-          />
+
+          {/* Notes - Rich Text Editor */}
+          <View
+            style={styles.section}
+            onLayout={(event) => {
+              noteSectionY.current = event.nativeEvent.layout.y;
+            }}
+          >
+            <Text style={styles.sectionLabel}>NOTES</Text>
+            {/* Rich Toolbar - 에디터 위에 배치 */}
+            <RichToolbar
+              editor={richText}
+              selectedIconTint={Colors.primary}
+              iconTint={Colors.textMuted}
+              style={styles.toolbarTop}
+              actions={[
+                actions.setBold,
+                actions.setItalic,
+                actions.setUnderline,
+                actions.heading1,
+                actions.heading2,
+                actions.insertBulletsList,
+                actions.insertOrderedList,
+                actions.checkboxList,
+                actions.blockquote,
+                actions.undo,
+                actions.redo,
+              ]}
+            />
+            <View style={styles.editorContainer}>
+              <RichEditor
+                ref={richText}
+                initialContentHTML={note}
+                onChange={(text) => {
+                  setNote(text);
+
+                  // 입력 중 계속 스크롤 (디바운싱)
+                  if (scrollTimeoutRef.current) {
+                    clearTimeout(scrollTimeoutRef.current);
+                  }
+                  scrollTimeoutRef.current = setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({
+                      y: noteSectionY.current - 60,
+                      animated: true,
+                    });
+                  }, 150);
+                }}
+                onFocus={() => {
+                  // 키보드가 올라올 때 Note 섹션이 보이도록 스크롤
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({
+                      y: noteSectionY.current - 60,
+                      animated: true,
+                    });
+                  }, 300);
+                }}
+                placeholder="How was today's practice? Feel free to write..."
+                editorStyle={{
+                  backgroundColor: Colors.background,
+                  color: Colors.text,
+                  placeholderColor: Colors.textMuted,
+                  contentCSSText: `
+                    * {
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      color: ${Colors.text};
+                      letter-spacing: -0.5px;
+                    }
+                    body {
+                      background-color: ${Colors.background};
+                      padding: 19px;
+                      margin: 0;
+                      min-height: 350px;
+                    }
+                    p { margin: 0 0 12px 0; line-height: 1.6; }
+                    h1, h2, h3 { color: ${Colors.text}; margin: 16px 0 8px 0; }
+                    h1 { font-size: 24px; }
+                    h2 { font-size: 20px; }
+                    h3 { font-size: 18px; }
+                    ul, ol { margin: 8px 0; padding-left: 24px; }
+                    li { margin: 4px 0; line-height: 1.5; }
+                    blockquote {
+                      border-left: 3px solid ${Colors.primary};
+                      margin: 12px 0;
+                      padding-left: 16px;
+                      color: ${Colors.textMuted};
+                      font-style: italic;
+                    }
+                  `,
+                  caretColor: Colors.primary,
+                }}
+                style={{ flex: 1, minHeight: 350 }}
+                initialHeight={350}
+                useContainer={true}
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Sequence Builder Bar */}
+        <SequenceBuilderBar />
+
+        {/* Save Button */}
+        <View style={styles.saveButtonContainer}>
+          <Pressable
+            onPress={handleSave}
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            disabled={isSaving}
+          >
+            <Save size={24} color={Colors.background} />
+            <Text style={styles.saveButtonText}>
+              {isSaving ? 'Saving...' : 'Save Session'}
+            </Text>
+          </Pressable>
         </View>
-      </ScrollView>
-
-      {/* Sequence Builder Bar - 시퀀스 저장용 */}
-      <SequenceBuilderBar />
-
-      {/* Save Button */}
-      <View style={styles.saveButtonContainer}>
-        <Pressable
-          onPress={handleSave}
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          disabled={isSaving}
-        >
-          <Save size={24} color={Colors.background} />
-          <Text style={styles.saveButtonText}>
-            {isSaving ? 'Saving...' : 'Save Session'}
-          </Text>
-        </Pressable>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -595,21 +646,23 @@ const styles = StyleSheet.create({
     color: Colors.text,
     letterSpacing: -0.5,
   },
+  toolbarTop: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderBottomWidth: 0,
+  },
   editorContainer: {
-    borderRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
-    minHeight: 300,
-  },
-  toolbar: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    marginTop: 10,
-    height: 44,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    minHeight: 400,
   },
   saveButtonContainer: {
     paddingHorizontal: 19,

@@ -11,6 +11,7 @@ import {
   PracticeLogPhoto,
 } from '@/database'
 import type { AsanaStatus } from '@/database'
+import { setCreatedTimestamps, setUpdatedTimestamp, setRawTimestamp } from '@/database/types'
 
 export interface CreatePracticeLogInput {
   title: string
@@ -56,8 +57,7 @@ export function usePracticeLogs() {
         log.intensity = input.intensity
         log.note = input.note || ''
         log.isFavorite = false
-        ;(log as any)._raw.created_at = now
-        ;(log as any)._raw.updated_at = now
+        setCreatedTimestamps(log, now)
       })
 
       // 2. 아사나 기록 생성
@@ -69,7 +69,7 @@ export function usePracticeLogs() {
           record.position = i
           record.note = asana.note || ''
           record.status = asana.status
-          ;(record as any)._raw.created_at = now
+          setRawTimestamp(record, 'created_at', now)
         })
       }
 
@@ -79,7 +79,7 @@ export function usePracticeLogs() {
           record.practiceLogId = practiceLog.id
           record.photoPath = input.photos[i]
           record.position = i
-          ;(record as any)._raw.created_at = now
+          setRawTimestamp(record, 'created_at', now)
         })
       }
 
@@ -103,7 +103,7 @@ export function usePracticeLogs() {
         if (input.intensity !== undefined) record.intensity = input.intensity
         if (input.note !== undefined) record.note = input.note
         if (input.isFavorite !== undefined) record.isFavorite = input.isFavorite
-        ;(record as any)._raw.updated_at = now
+        setUpdatedTimestamp(record, now)
       })
 
       // 아사나 업데이트 (있으면 전체 교체)
@@ -121,7 +121,7 @@ export function usePracticeLogs() {
             record.position = i
             record.note = asana.note || ''
             record.status = asana.status
-            ;(record as any)._raw.created_at = now
+            setRawTimestamp(record, 'created_at', now)
           })
         }
       }
@@ -138,7 +138,7 @@ export function usePracticeLogs() {
             record.practiceLogId = id
             record.photoPath = input.photos![i]
             record.position = i
-            ;(record as any)._raw.created_at = now
+            setRawTimestamp(record, 'created_at', now)
           })
         }
       }
@@ -168,7 +168,7 @@ export function usePracticeLogs() {
       const log = await practiceLogsCollection.find(id)
       await log.update((record) => {
         record.isFavorite = !record.isFavorite
-        ;(record as any)._raw.updated_at = Date.now()
+        setUpdatedTimestamp(record, Date.now())
       })
     })
   }, [db])

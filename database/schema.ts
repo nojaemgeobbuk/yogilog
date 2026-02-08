@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export const schema = appSchema({
-  version: 1,
+  version: 2,
   tables: [
     // 아사나 마스터 데이터 (즐겨찾기 포함)
     tableSchema({
@@ -46,6 +46,7 @@ export const schema = appSchema({
         { name: 'duration', type: 'number' },
         { name: 'intensity', type: 'number' },
         { name: 'note', type: 'string', isOptional: true },
+        { name: 'location', type: 'string', isOptional: true }, // 수련 장소 추가
         { name: 'is_favorite', type: 'boolean' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },

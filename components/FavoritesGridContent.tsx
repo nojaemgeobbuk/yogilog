@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  Animated,
+  Pressable,
 } from "react-native";
 import { Heart } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import { Asana } from "@/constants/AsanaDefinitions";
 import { AsanaIcon } from "@/components/AsanaIcon";
+import { useSettingsStore } from "@/store/useSettingsStore";
 
 const { width: screenWidth } = Dimensions.get("window");
 const GRID_COLUMNS = 3;
@@ -32,6 +35,52 @@ interface FavoritesGridContentProps {
   emptySubMessage?: string;
 }
 
+// 애니메이션이 있는 즐겨찾기 버튼
+const AnimatedHeartButton = ({
+  onPress,
+  asanaName,
+}: {
+  onPress: (name: string) => void;
+  asanaName: string;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = useCallback(() => {
+    // 바운스 애니메이션 후 콜백 실행
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.5,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1.2,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    onPress(asanaName);
+  }, [asanaName, onPress, scaleAnim]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={styles.favoriteButton}
+      hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Heart size={14} color={Colors.primary} fill={Colors.primary} />
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 export function FavoritesGridContent({
   asanas,
   selectedAsanas,
@@ -40,6 +89,8 @@ export function FavoritesGridContent({
   emptyMessage = "즐겨찾기가 없습니다",
   emptySubMessage,
 }: FavoritesGridContentProps) {
+  const asanaNameLanguage = useSettingsStore((state) => state.asanaNameLanguage);
+
   // 이미 선택된 아사나 제외
   const availableAsanas = asanas.filter(
     (asana) => !selectedAsanas.includes(asana.english)
@@ -82,14 +133,11 @@ export function FavoritesGridContent({
               activeOpacity={0.7}
               style={[styles.card, { width: CARD_WIDTH }]}
             >
-              {/* 즐겨찾기 해제 버튼 */}
-              <TouchableOpacity
-                onPress={() => onToggleFavorite(asana.english)}
-                style={styles.favoriteButton}
-                hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-              >
-                <Heart size={14} color={Colors.primary} fill={Colors.primary} />
-              </TouchableOpacity>
+              {/* 즐겨찾기 해제 버튼 with animation */}
+              <AnimatedHeartButton
+                onPress={onToggleFavorite}
+                asanaName={asana.english}
+              />
 
               {/* 아이콘 */}
               <View style={styles.iconContainer}>
@@ -104,7 +152,7 @@ export function FavoritesGridContent({
 
               {/* 이름 */}
               <Text style={styles.asanaName} numberOfLines={2}>
-                {asana.english}
+                {asanaNameLanguage === "korean" ? asana.korean : asana.sanskrit}
               </Text>
             </TouchableOpacity>
           ))}

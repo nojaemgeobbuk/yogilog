@@ -16,6 +16,7 @@ export interface Asana {
   id: string;
   english: string;
   sanskrit: string;
+  korean: string;
   level: AsanaLevel;
   type: AsanaType;
 }

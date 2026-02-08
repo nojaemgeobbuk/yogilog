@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -9,7 +9,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedScrollHandler,
-  withTiming,
   interpolate,
   runOnJS,
 } from "react-native-reanimated";
@@ -20,11 +19,10 @@ import { practiceLogsCollection, PracticeLog, PracticeLogAsana, PracticeLogPhoto
 import { Colors } from "@/constants/Colors";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const PULL_THRESHOLD = 120; // Pull distance to trigger refresh
+const PULL_THRESHOLD = 120;
 
 type FilterType = "all" | "favorites";
 
-// AlbumPlaylist가 기대하는 형식
 interface SessionItem {
   id: string;
   title: string;
@@ -36,16 +34,15 @@ interface SessionItem {
   asanas: { name: string }[];
   hashtags: string[];
   note: string;
+  location?: string;
 }
 
-// PracticeLog 모델에서 SessionItem으로 변환하는 컴포넌트 props
 interface EnhancedPracticeLogProps {
   practiceLog: PracticeLog;
   photos: PracticeLogPhoto[];
   asanas: PracticeLogAsana[];
 }
 
-// PracticeLog를 SessionItem으로 변환하는 헬퍼
 const practiceLogToSessionItem = (
   log: PracticeLog,
   photos: PracticeLogPhoto[],
@@ -61,14 +58,47 @@ const practiceLogToSessionItem = (
   asanas: asanas.map((a) => ({ name: a.asanaName })),
   hashtags: [],
   note: log.note || '',
+  location: log.location || '',
 });
 
-// 메인 홈 화면 컴포넌트 (Raw)
-interface HomeScreenContentProps {
-  practiceLogs: PracticeLog[];
+interface ObservedPracticeLogItemWrapperProps {
+  practiceLog: PracticeLog;
+  onDataReady: (session: SessionItem) => void;
 }
 
-const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
+const ObservedPracticeLogItemWrapperBase = ({
+  practiceLog,
+  photos,
+  asanas,
+  onDataReady
+}: EnhancedPracticeLogProps & { onDataReady: (session: SessionItem) => void }) => {
+  const onDataReadyRef = useRef(onDataReady);
+  onDataReadyRef.current = onDataReady;
+
+  useEffect(() => {
+    if (practiceLog && photos && asanas) {
+      const session = practiceLogToSessionItem(practiceLog, photos, asanas);
+      onDataReadyRef.current(session);
+    }
+  }, [practiceLog, photos, asanas]);
+
+  return null;
+};
+
+const ObservedPracticeLogItemWrapper = withObservables(
+  ['practiceLog'],
+  ({ practiceLog }: ObservedPracticeLogItemWrapperProps) => ({
+    practiceLog,
+    photos: practiceLog.photosOrdered.observe(),
+    asanas: practiceLog.asanasOrdered.observe(),
+  })
+)(ObservedPracticeLogItemWrapperBase);
+
+interface HomeScreenContentProps {
+  practiceLogs?: PracticeLog[];
+}
+
+const HomeScreenContent = ({ practiceLogs }: HomeScreenContentProps) => {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>("all");
   const [sessionsMap, setSessionsMap] = useState<Map<string, SessionItem>>(new Map());
@@ -76,11 +106,8 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
 
-  // Animated values for pull-to-refresh
   const scrollY = useSharedValue(0);
   const pullDistance = useSharedValue(0);
-
-  const isLoading = practiceLogs.length > 0 && loadedCount < practiceLogs.length;
 
   const handleSessionPress = useCallback((session: SessionItem) => {
     router.push(`/session/${session.id}`);
@@ -90,26 +117,21 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
     router.push("/(modals)/write");
   }, [router]);
 
-  // Refresh handler
   const triggerRefresh = useCallback(() => {
     setIsRefreshing(true);
-    // Simulate refresh - in real app, this would refetch data
     setTimeout(() => {
       setIsRefreshing(false);
       setPullProgress(0);
     }, 2000);
   }, []);
 
-  // Update pull progress for JS thread
   const updatePullProgress = useCallback((progress: number) => {
     setPullProgress(progress);
   }, []);
 
-  // Scroll handler for pull-to-refresh
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
-
       if (event.contentOffset.y < 0) {
         const pull = Math.abs(event.contentOffset.y);
         pullDistance.value = pull;
@@ -127,7 +149,6 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
     },
   });
 
-  // Animated styles for lotus container
   const lotusContainerStyle = useAnimatedStyle(() => {
     const translateY = interpolate(
       pullDistance.value,
@@ -144,15 +165,16 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
       [0, 30, PULL_THRESHOLD],
       [0, 0.5, 1]
     );
-
     return {
       transform: [{ translateY }, { scale }],
       opacity,
     };
   });
 
-  // 세션 목록 (Map에서 배열로 변환, 순서 유지)
-  const sessions = practiceLogs
+  const logs = practiceLogs ?? [];
+  const isLoading = logs.length > 0 && loadedCount < logs.length;
+
+  const sessions = logs
     .map((log) => sessionsMap.get(log.id))
     .filter((s): s is SessionItem => s !== undefined);
 
@@ -166,10 +188,9 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
     <SafeAreaView
       className="flex-1"
       style={{ backgroundColor: Colors.backgroundSoft }}
-      edges={['top']}
+      edges={['top', 'bottom']}
     >
-      {/* 각 PracticeLog의 관계 데이터를 observe하는 숨겨진 컴포넌트들 */}
-      {practiceLogs.map((log) => (
+      {logs.map((log) => (
         <ObservedPracticeLogItemWrapper
           key={log.id}
           practiceLog={log}
@@ -187,7 +208,6 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
         />
       ))}
 
-      {/* Lotus Animation (Pull-to-refresh indicator) */}
       <Animated.View style={[styles.lotusContainer, lotusContainerStyle]}>
         <LotusAnimation
           pullProgress={pullProgress}
@@ -206,13 +226,11 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Brand Header Section */}
         <View style={styles.brandSection}>
           <Text style={styles.brandTitle}>Yogilog</Text>
           <Text style={styles.brandSubtitle}>YOUR PRACTICE DECK</Text>
         </View>
 
-        {/* Filter Tabs */}
         <View style={styles.filterContainer}>
           <Pressable
             onPress={() => setFilter("all")}
@@ -250,7 +268,6 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
           </Pressable>
         </View>
 
-        {/* Card Deck Section */}
         <View style={styles.deckSection}>
           {isLoading ? (
             <SkeletonDeck />
@@ -260,7 +277,6 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
         </View>
       </Animated.ScrollView>
 
-      {/* Add Button */}
       <View style={styles.buttonContainer}>
         <Pressable
           onPress={handleAddSession}
@@ -272,42 +288,8 @@ const HomeScreenContent = memo(({ practiceLogs }: HomeScreenContentProps) => {
       </View>
     </SafeAreaView>
   );
-});
+};
 
-// 관계 데이터를 observe하고 부모에게 전달하는 래퍼 컴포넌트
-interface ObservedPracticeLogItemWrapperProps {
-  practiceLog: PracticeLog;
-  onDataReady: (session: SessionItem) => void;
-}
-
-const ObservedPracticeLogItemWrapperBase = memo(({
-  practiceLog,
-  photos,
-  asanas,
-  onDataReady
-}: EnhancedPracticeLogProps & { onDataReady: (session: SessionItem) => void }) => {
-  // 데이터가 준비되면 부모에게 전달
-  const session = practiceLogToSessionItem(practiceLog, photos, asanas);
-
-  // useEffect 대신 직접 호출 (observe로 인해 데이터 변경 시 자동 리렌더링)
-  // React 18+에서는 이 방식이 안전
-  requestAnimationFrame(() => {
-    onDataReady(session);
-  });
-
-  return null;
-});
-
-const ObservedPracticeLogItemWrapper = withObservables(
-  ['practiceLog'],
-  ({ practiceLog }: ObservedPracticeLogItemWrapperProps) => ({
-    practiceLog,
-    photos: practiceLog.photosOrdered.observe(),
-    asanas: practiceLog.asanasOrdered.observe(),
-  })
-)(ObservedPracticeLogItemWrapperBase);
-
-// withObservables로 practice_logs 컬렉션 observe
 const enhanceHomeScreen = withObservables([], () => ({
   practiceLogs: practiceLogsCollection.query(Q.sortBy('created_at', Q.desc)).observe(),
 }));

@@ -1,6 +1,18 @@
-import React, { useEffect, useRef } from "react";
-import { View, Text, Modal, Pressable, Animated, Easing, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useCallback } from "react";
+import { View, Text, Modal, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withDelay,
+  runOnJS,
+  Easing,
+  withTiming,
+} from "react-native-reanimated";
 import ConfettiCannon from "react-native-confetti-cannon";
+import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/Colors";
 import { Badge, TIER_COLORS, getBadgeById } from "@/constants/Badges";
 
@@ -15,39 +27,95 @@ export function BadgeCelebrationModal({
   badgeIds,
   onClose,
 }: BadgeCelebrationModalProps) {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const confettiRef = useRef<ConfettiCannon>(null);
+
+  // Reanimated shared values
+  const scale = useSharedValue(0);
+  const rotation = useSharedValue(0);
+  const iconScale = useSharedValue(0.8);
+  const contentOpacity = useSharedValue(0);
 
   const badges = badgeIds
     .map((id) => getBadgeById(id))
     .filter((b): b is Badge => b !== undefined);
 
+  // 햅틱 피드백 트리거
+  const triggerHaptic = useCallback(async () => {
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.log('[BadgeCelebration] Haptics not available');
+    }
+  }, []);
+
+  // 폭죽 시작
+  const startConfetti = useCallback(() => {
+    confettiRef.current?.start();
+  }, []);
+
   useEffect(() => {
     if (visible && badges.length > 0) {
-      scaleAnim.setValue(0);
-      rotateAnim.setValue(0);
+      // 초기값 리셋
+      scale.value = 0;
+      rotation.value = 0;
+      iconScale.value = 0.8;
+      contentOpacity.value = 0;
 
-      Animated.sequence([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.elastic(1),
-          useNativeDriver: true,
-        }),
-      ]).start();
+      // 햅틱 피드백
+      triggerHaptic();
 
+      // 메인 컨텐츠 페이드 인
+      contentOpacity.value = withTiming(1, { duration: 300 });
+
+      // Pop 애니메이션 (0.8 → 1.2 → 1.0)
+      scale.value = withSequence(
+        withSpring(0.8, { damping: 10, stiffness: 100 }),
+        withSpring(1.2, { damping: 8, stiffness: 150 }),
+        withSpring(1, { damping: 12, stiffness: 100 })
+      );
+
+      // 아이콘 Pop 애니메이션 (조금 딜레이)
+      iconScale.value = withDelay(
+        200,
+        withSequence(
+          withSpring(0.8, { damping: 8, stiffness: 100 }),
+          withSpring(1.2, { damping: 6, stiffness: 180 }),
+          withSpring(1, { damping: 10, stiffness: 120 })
+        )
+      );
+
+      // 회전 애니메이션 (약간의 흔들림)
+      rotation.value = withDelay(
+        300,
+        withSequence(
+          withTiming(-10, { duration: 100, easing: Easing.ease }),
+          withTiming(10, { duration: 100, easing: Easing.ease }),
+          withTiming(-5, { duration: 80, easing: Easing.ease }),
+          withTiming(5, { duration: 80, easing: Easing.ease }),
+          withTiming(0, { duration: 60, easing: Easing.ease })
+        )
+      );
+
+      // 폭죽 시작 (애니메이션 후)
       setTimeout(() => {
-        confettiRef.current?.start();
-      }, 300);
+        runOnJS(startConfetti)();
+      }, 400);
     }
-  }, [visible, badges.length]);
+  }, [visible, badges.length, scale, rotation, iconScale, contentOpacity, triggerHaptic, startConfetti]);
+
+  // 메인 컨테이너 애니메이션 스타일
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: contentOpacity.value,
+  }));
+
+  // 아이콘 애니메이션 스타일 (Pop effect)
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: iconScale.value },
+      { rotate: `${rotation.value}deg` },
+    ],
+  }));
 
   if (badges.length === 0) return null;
 
@@ -55,40 +123,40 @@ export function BadgeCelebrationModal({
   const BadgeIcon = displayBadge.icon;
   const tierColor = TIER_COLORS[displayBadge.tier];
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.container}>
-        {/* Confetti */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={150}
-          origin={{ x: -10, y: 0 }}
-          fadeOut
-          autoStart={false}
-          colors={[Colors.primary, "#FFD700", "#4ECDC4", "#FF6B6B", "#F2E8DF"]}
-        />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <Pressable style={styles.container} onPress={onClose}>
+          {/* Confetti */}
+          <ConfettiCannon
+            ref={confettiRef}
+            count={200}
+            origin={{ x: -10, y: 0 }}
+            fadeOut
+            autoStart={false}
+            colors={[Colors.primary, "#FFD700", "#4ECDC4", "#FF6B6B", "#F2E8DF", "#98D8C8"]}
+            explosionSpeed={400}
+            fallSpeed={3000}
+          />
 
-        <Animated.View style={[styles.content, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.congratsText}>Congratulations!</Text>
-          <Text style={styles.subtitleText}>You've earned a new badge!</Text>
+          <Pressable style={styles.contentWrapper} onPress={(e) => e.stopPropagation()}>
+            <Animated.View style={[styles.content, containerAnimatedStyle]}>
+          {/* 축하 메시지 */}
+          <Text style={styles.congratsText}>🎉 축하합니다!</Text>
+          <Text style={styles.subtitleText}>새로운 뱃지를 획득하셨습니다</Text>
 
-          {/* Badge Icon */}
-          <Animated.View style={[styles.badgeContainer, { transform: [{ rotate: spin }] }]}>
+          {/* Badge Icon with Pop Animation */}
+          <Animated.View style={[styles.badgeContainer, iconAnimatedStyle]}>
             <View
               style={[
                 styles.badgeCircle,
                 {
-                  backgroundColor: Colors.secondary,
-                  borderColor: Colors.primary,
+                  backgroundColor: displayBadge.color + "20",
+                  borderColor: displayBadge.color,
                 },
               ]}
             >
-              <BadgeIcon size={64} color={Colors.primary} />
+              <BadgeIcon size={64} color={displayBadge.color} />
             </View>
           </Animated.View>
 
@@ -108,64 +176,87 @@ export function BadgeCelebrationModal({
           {/* Additional badges */}
           {badges.length > 1 && (
             <Text style={styles.additionalText}>
-              +{badges.length - 1} more badge(s) earned!
+              +{badges.length - 1}개의 뱃지를 더 획득했습니다!
             </Text>
           )}
 
-          {/* Close Button */}
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>Got it!</Text>
-          </Pressable>
-        </Animated.View>
-      </View>
+            {/* Close Button */}
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed && styles.closeButtonPressed,
+              ]}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            >
+              <Text style={styles.closeButtonText}>확인</Text>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Pressable>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.97)",
+  },
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.95)",
+  },
+  contentWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     alignItems: "center",
+    paddingHorizontal: 24,
   },
   congratsText: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 8,
     color: Colors.primary,
     letterSpacing: -0.5,
   },
   subtitleText: {
     fontSize: 16,
-    marginBottom: 29,
+    marginBottom: 32,
     color: Colors.textMuted,
     letterSpacing: -0.5,
   },
   badgeContainer: {
-    marginBottom: 19,
+    marginBottom: 20,
   },
   badgeCircle: {
-    width: 128,
-    height: 128,
-    borderRadius: 64,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 4,
+    // 그림자 효과
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
   },
   tierBadge: {
-    paddingHorizontal: 19,
-    paddingVertical: 5,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
     borderRadius: 9999,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   tierText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "bold",
-    letterSpacing: -0.5,
+    letterSpacing: 1,
   },
   badgeTitle: {
     fontSize: 28,
@@ -178,22 +269,34 @@ const styles = StyleSheet.create({
   badgeDescription: {
     fontSize: 16,
     textAlign: "center",
-    marginBottom: 29,
-    paddingHorizontal: 38,
+    marginBottom: 24,
+    paddingHorizontal: 20,
     color: Colors.textMuted,
     letterSpacing: -0.5,
+    lineHeight: 24,
   },
   additionalText: {
     fontSize: 14,
-    marginBottom: 19,
+    marginBottom: 20,
     color: Colors.primary,
+    fontWeight: "600",
     letterSpacing: -0.5,
   },
   closeButton: {
-    paddingHorizontal: 38,
-    paddingVertical: 14,
+    paddingHorizontal: 48,
+    paddingVertical: 16,
     borderRadius: 9999,
     backgroundColor: Colors.primary,
+    // 그림자 효과
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  closeButtonPressed: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.9,
   },
   closeButtonText: {
     fontSize: 18,

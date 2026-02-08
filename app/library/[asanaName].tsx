@@ -20,8 +20,9 @@ import {
 import { Q } from "@nozbe/watermelondb";
 import { Colors } from "@/constants/Colors";
 import { AsanaIcon } from "@/components/AsanaIcon";
-import { AsanaHeatmap } from "@/components/AsanaHeatmap";
-import { useAsanaHeatmap } from "@/hooks/useAsanaHeatmap";
+import { AsanaGrowthTree } from "@/components/AsanaGrowthTree";
+import { useAsanaGrowthLevel } from "@/hooks/useAsanaGrowthLevel";
+import { formatDateEnglish, formatDuration } from "@/utils/formatDate";
 import {
   practiceLogAsanasCollection,
   practiceLogsCollection,
@@ -56,8 +57,8 @@ export default function AsanaDetailScreen() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // 히트맵 데이터
-  const { data: heatmapData, isLoading: heatmapLoading } = useAsanaHeatmap(decodedName);
+  // 성장 레벨 데이터
+  const { data: growthData, isLoading: growthLoading } = useAsanaGrowthLevel(decodedName);
 
   useEffect(() => {
     let isMounted = true;
@@ -133,21 +134,6 @@ export default function AsanaDetailScreen() {
     };
   }, [decodedName]);
 
-  const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, []);
-
-  const formatDuration = useCallback((minutes: number) => {
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hrs > 0) return `${hrs}h ${mins}m`;
-    return `${mins}m`;
-  }, []);
-
   const handleSessionPress = useCallback((sessionId: string) => {
     router.push(`/session/${sessionId}`);
   }, [router]);
@@ -189,9 +175,15 @@ export default function AsanaDetailScreen() {
             {stats.totalPlays} {stats.totalPlays === 1 ? "Play" : "Plays"}
           </Text>
 
-          {/* 4주 히트맵 */}
-          <View style={styles.heatmapContainer}>
-            <AsanaHeatmap data={heatmapData} isLoading={heatmapLoading} />
+          {/* 성장 나무 */}
+          <View style={styles.growthContainer}>
+            <AsanaGrowthTree
+              data={growthData}
+              isLoading={growthLoading}
+              size="large"
+              showLabel
+              showConfetti
+            />
           </View>
         </View>
 
@@ -220,7 +212,7 @@ export default function AsanaDetailScreen() {
               <Calendar size={24} color={Colors.primary} />
               <Text style={styles.statValue}>
                 {stats.firstPracticed
-                  ? formatDate(stats.firstPracticed)
+                  ? formatDateEnglish(stats.firstPracticed)
                   : "N/A"}
               </Text>
               <Text style={styles.statLabel}>First Played</Text>
@@ -250,8 +242,6 @@ export default function AsanaDetailScreen() {
                   session={session}
                   firstImage={firstImage}
                   onPress={() => handleSessionPress(session.id)}
-                  formatDuration={formatDuration}
-                  formatDate={formatDate}
                 />
               ))}
             </View>
@@ -266,16 +256,12 @@ interface SessionListItemProps {
   session: PracticeLog;
   firstImage: string | null;
   onPress: () => void;
-  formatDuration: (minutes: number) => string;
-  formatDate: (dateString: string) => string;
 }
 
 const SessionListItem = memo(({
   session,
   firstImage,
   onPress,
-  formatDuration,
-  formatDate,
 }: SessionListItemProps) => {
   return (
     <Pressable onPress={onPress} style={styles.sessionItem}>
@@ -297,7 +283,7 @@ const SessionListItem = memo(({
           {session.title}
         </Text>
         <View style={styles.sessionMeta}>
-          <Text style={styles.metaText}>{formatDate(session.date)}</Text>
+          <Text style={styles.metaText}>{formatDateEnglish(session.date)}</Text>
           <Text style={styles.metaDot}>•</Text>
           <Text style={styles.durationText}>{formatDuration(session.duration)}</Text>
         </View>
@@ -358,8 +344,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     letterSpacing: -0.5,
   },
-  heatmapContainer: {
-    marginTop: 16,
+  growthContainer: {
+    marginTop: 24,
     alignItems: "center",
   },
   statsContainer: {

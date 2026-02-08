@@ -19,6 +19,9 @@ export const Colors = {
   // Accent 2 - Deep Blue
   accent2: "#5C9EAD",              // Deep emphasis, icon backgrounds
 
+  // Seafoam Green - 카드 아이콘/링크용
+  seafoam: "#A3CBC4",              // Seafoam green for card icons and links
+
   // Tab Bar
   tabInactive: "#999999",          // Inactive tab color
 

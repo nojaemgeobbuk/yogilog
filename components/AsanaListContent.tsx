@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   View,
   Pressable,
+  Animated,
 } from "react-native";
 import { Heart } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import { LEVEL_THEME, Asana } from "@/constants/AsanaDefinitions";
 import { AsanaIcon } from "@/components/AsanaIcon";
+import { useSettingsStore } from "@/store/useSettingsStore";
 
 interface AsanaListContentProps {
   /** 표시할 아사나 목록 */
@@ -29,6 +31,54 @@ interface AsanaListContentProps {
   emptySubMessage?: string;
 }
 
+// 애니메이션이 있는 즐겨찾기 버튼 컴포넌트
+const AnimatedFavoriteButton = ({
+  isFavorite,
+  onPress,
+  asanaName,
+}: {
+  isFavorite: boolean;
+  onPress: (name: string) => void;
+  asanaName: string;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = useCallback(() => {
+    // 바운스 애니메이션
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.4,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    onPress(asanaName);
+  }, [asanaName, onPress, scaleAnim]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={styles.favoriteButton}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Heart
+          size={18}
+          color={isFavorite ? Colors.primary : Colors.textMuted}
+          fill={isFavorite ? Colors.primary : "transparent"}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 export function AsanaListContent({
   asanas,
   selectedAsanas,
@@ -38,6 +88,8 @@ export function AsanaListContent({
   emptyMessage = "No asanas found",
   emptySubMessage,
 }: AsanaListContentProps) {
+  const asanaNameLanguage = useSettingsStore((state) => state.asanaNameLanguage);
+
   // 이미 선택된 아사나 제외
   const availableAsanas = asanas.filter(
     (asana) => !selectedAsanas.includes(asana.english)
@@ -87,32 +139,23 @@ export function AsanaListContent({
 
               <View style={{ flex: 1 }}>
                 <Text style={styles.asanaName} numberOfLines={1}>
-                  {asana.english}
+                  {asanaNameLanguage === "korean" ? asana.korean : asana.sanskrit}
                 </Text>
                 <Text style={styles.asanaSanskrit} numberOfLines={1}>
-                  {asana.sanskrit}
+                  {asanaNameLanguage === "korean" ? asana.sanskrit : asana.english}
                 </Text>
               </View>
             </View>
 
             {/* Actions */}
             <View style={styles.actionsContainer}>
-              {/* Favorite button */}
+              {/* Favorite button with animation */}
               {onToggleFavorite && (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite(asana.english);
-                  }}
-                  style={styles.favoriteButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Heart
-                    size={18}
-                    color={isFavorite ? Colors.primary : Colors.textMuted}
-                    fill={isFavorite ? Colors.primary : "transparent"}
-                  />
-                </Pressable>
+                <AnimatedFavoriteButton
+                  isFavorite={isFavorite}
+                  onPress={onToggleFavorite}
+                  asanaName={asana.english}
+                />
               )}
 
               {/* Level badge */}
@@ -195,7 +238,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   favoriteButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
   },
   levelBadge: {
     paddingHorizontal: 10,

@@ -4,6 +4,7 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { Layers, Save, Trash2 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
@@ -25,6 +26,7 @@ export function SequenceBuilderBar() {
 
   const handleSave = (name: string) => {
     saveSequence(name);
+    Alert.alert("저장 완료", `"${name}" 시퀀스가 저장되었습니다.`);
   };
 
   const handleClear = () => {

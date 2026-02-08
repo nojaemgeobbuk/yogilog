@@ -18,6 +18,7 @@ export class PracticeLog extends Model {
   @field('duration') duration!: number // 분 단위
   @field('intensity') intensity!: number // 1-5
   @field('note') note?: string // HTML 형식 노트
+  @field('location') location?: string // 수련 장소
   @field('is_favorite') isFavorite!: boolean
   @readonly @date('created_at') createdAt!: Date
   @date('updated_at') updatedAt!: Date

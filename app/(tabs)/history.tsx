@@ -7,6 +7,7 @@ import { Calendar as CalendarIcon, Clock, ChevronRight } from "lucide-react-nati
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { Colors } from "@/constants/Colors";
+import { formatDateShort, formatDuration } from "@/utils/formatDate";
 import {
   practiceLogsCollection,
   PracticeLog,
@@ -18,14 +19,12 @@ interface SessionListItemProps {
   session: PracticeLog;
   firstImage: string | null;
   onPress: () => void;
-  formatDuration: (minutes: number) => string;
 }
 
 const SessionListItem = memo(({
   session,
   firstImage,
   onPress,
-  formatDuration,
 }: SessionListItemProps) => {
   return (
     <Pressable onPress={onPress} style={styles.sessionItem}>
@@ -47,12 +46,15 @@ const SessionListItem = memo(({
           {session.title}
         </Text>
         <View style={styles.sessionMeta}>
+          <Text style={styles.dateText}>{formatDateShort(session.date)}</Text>
+          <Text style={styles.metaDot}>•</Text>
           <Clock size={12} color={Colors.textMuted} />
           <Text style={styles.metaText}>{formatDuration(session.duration)}</Text>
-          <Text style={styles.intensityStars}>
-            {"★".repeat(session.intensity)}
-          </Text>
         </View>
+        <Text style={styles.intensityStars}>
+          {"★".repeat(session.intensity)}
+          {"☆".repeat(5 - session.intensity)}
+        </Text>
       </View>
 
       {/* Arrow */}
@@ -65,14 +67,12 @@ const SessionListItem = memo(({
 interface EnhancedSessionItemProps {
   session: PracticeLog;
   onPress: () => void;
-  formatDuration: (minutes: number) => string;
 }
 
 const EnhancedSessionItemContent = ({
   session,
   photos,
   onPress,
-  formatDuration,
 }: EnhancedSessionItemProps & { photos: PracticeLogPhoto[] }) => {
   const firstImage = photos.length > 0 ? photos[0].photoPath : null;
   return (
@@ -80,7 +80,6 @@ const EnhancedSessionItemContent = ({
       session={session}
       firstImage={firstImage}
       onPress={onPress}
-      formatDuration={formatDuration}
     />
   );
 };
@@ -147,13 +146,6 @@ const HistoryScreenContent = memo(({ practiceLogs }: HistoryScreenContentProps) 
     setSelectedDate(day.dateString);
   }, []);
 
-  const formatDuration = useCallback((minutes: number) => {
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hrs > 0) return `${hrs}h ${mins}m`;
-    return `${mins}m`;
-  }, []);
-
   const totalSessions = practiceLogs.length;
   const totalMinutes = practiceLogs.reduce((acc, s) => acc + s.duration, 0);
   const totalHours = Math.floor(totalMinutes / 60);
@@ -166,10 +158,11 @@ const HistoryScreenContent = memo(({ practiceLogs }: HistoryScreenContentProps) 
     <SafeAreaView
       className="flex-1"
       style={{ backgroundColor: Colors.background }}
+      edges={['top', 'bottom']}
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerLeft}>
           <CalendarIcon size={28} color={Colors.primary} />
           <Text style={styles.headerTitle}>History</Text>
         </View>
@@ -225,7 +218,6 @@ const HistoryScreenContent = memo(({ practiceLogs }: HistoryScreenContentProps) 
                     key={session.id}
                     session={session}
                     onPress={() => handleSessionPress(session.id)}
-                    formatDuration={formatDuration}
                   />
                 ))}
               </View>
@@ -243,7 +235,6 @@ const HistoryScreenContent = memo(({ practiceLogs }: HistoryScreenContentProps) 
                   key={session.id}
                   session={session}
                   onPress={() => handleSessionPress(session.id)}
-                  formatDuration={formatDuration}
                 />
               ))}
             </View>
@@ -271,7 +262,7 @@ const styles = StyleSheet.create({
     paddingTop: 19,
     paddingBottom: 10,
   },
-  headerTop: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -365,12 +356,25 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   metaText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textMuted,
     letterSpacing: -0.5,
   },
+  dateText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  metaDot: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    marginHorizontal: 2,
+  },
   intensityStars: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.primary,
+    marginTop: 4,
+    letterSpacing: 1,
   },
 });

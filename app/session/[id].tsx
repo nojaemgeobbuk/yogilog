@@ -61,7 +61,7 @@ interface SessionDetailContentProps {
 }
 
 // 세션 상세 내용 컴포넌트
-const SessionDetailContent = memo(({
+const SessionDetailContent = ({
   practiceLog,
   photos,
   asanas,
@@ -171,8 +171,13 @@ const SessionDetailContent = memo(({
     router.push({ pathname: "/edit/[id]", params: { id: session.id } });
   };
 
-  const handleToggleFavorite = () => {
-    toggleFavorite(session.id);
+  const handleToggleFavorite = async () => {
+    try {
+      await toggleFavorite(session.id);
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      Alert.alert('오류', '즐겨찾기 변경에 실패했습니다.');
+    }
   };
 
   const renderStatusChip = (status?: string) => {
@@ -440,7 +445,7 @@ const SessionDetailContent = memo(({
       </Modal>
     </SafeAreaView>
   );
-});
+};
 
 // withObservables로 practiceLog와 관계 데이터 observe
 const enhanceWithObservables = withObservables(

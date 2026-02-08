@@ -9,22 +9,19 @@ import {
   TextInput,
   View,
   ScrollView,
-  ActivityIndicator,
 } from "react-native";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import withObservables from "@nozbe/with-observables";
-import { of } from "rxjs";
-import { switchMap } from "rxjs/operators";
 
 import { ASANA_DB } from "@/constants/AsanaDB";
 import { AsanaListContent } from "@/components/AsanaListContent";
 import { FavoritesGridContent } from "@/components/FavoritesGridContent";
 import { SequenceCard } from "@/components/SequenceCard";
 import { useSequenceBuilderStore } from "@/store/useSequenceBuilderStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useAsanas, observeFavoriteAsanas } from "@/hooks/useAsanas";
-import { useSequences, observeSequences, getSequenceAsanaNames } from "@/hooks/useSequences";
-import { Asana, Sequence } from "@/database";
-import { UserSequence, SequenceAsanaItem } from "@/types";
+import { Asana } from "@/database";
+import { UserSequence } from "@/types";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -57,7 +54,8 @@ const AllAsanasTab = memo(({
     const searchStr = searchText.toLowerCase();
     return ASANA_DB.filter((asana) =>
       asana.english.toLowerCase().includes(searchStr) ||
-      asana.sanskrit.toLowerCase().includes(searchStr)
+      asana.sanskrit.toLowerCase().includes(searchStr) ||
+      asana.korean.includes(searchStr)
     );
   }, [searchText]);
 
@@ -74,19 +72,20 @@ const AllAsanasTab = memo(({
   );
 });
 
-// ==================== My Sequences Tab (with WatermelonDB) ====================
-interface MySequencesTabContentProps {
-  sequences: Sequence[];
-  onSelectSequence: (sequence: Sequence) => void;
+// ==================== My Sequences Tab (Zustand Store) ====================
+interface MySequencesTabProps {
+  onSelectSequence: (sequence: UserSequence) => void;
   onDeleteSequence: (id: string) => void;
 }
 
-const MySequencesTabContent = memo(({
-  sequences,
+const MySequencesTab = memo(({
   onSelectSequence,
   onDeleteSequence,
-}: MySequencesTabContentProps) => {
-  if (sequences.length === 0) {
+}: MySequencesTabProps) => {
+  // Zustand 스토어에서 저장된 시퀀스 가져오기
+  const savedSequences = useSequenceBuilderStore((state) => state.savedSequences);
+
+  if (savedSequences.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIconWrapper}>
@@ -110,92 +109,17 @@ const MySequencesTabContent = memo(({
       showsVerticalScrollIndicator={true}
       contentContainerStyle={styles.sequenceScrollContent}
     >
-      {sequences.map((sequence) => (
-        <SequenceCardWrapper
+      {savedSequences.map((sequence) => (
+        <SequenceCard
           key={sequence.id}
           sequence={sequence}
-          onAdd={onSelectSequence}
-          onDelete={onDeleteSequence}
+          onAdd={() => onSelectSequence(sequence)}
+          onDelete={() => onDeleteSequence(sequence.id)}
         />
       ))}
     </ScrollView>
   );
 });
-
-// 시퀀스 카드 래퍼 (관계 데이터 로드)
-interface SequenceCardWrapperProps {
-  sequence: Sequence;
-  onAdd: (sequence: Sequence) => void;
-  onDelete: (id: string) => void;
-}
-
-const SequenceCardWrapperBase = memo(({
-  sequence,
-  sequenceAsanas,
-  onAdd,
-  onDelete,
-}: SequenceCardWrapperProps & { sequenceAsanas: any[] }) => {
-  // UserSequence 형식으로 변환
-  const userSequence: UserSequence = useMemo(() => ({
-    id: sequence.id,
-    name: sequence.name,
-    asanas: sequenceAsanas.map((sa, index) => ({
-      itemId: sa.id,
-      asanaName: sa.asana?.englishName || `Asana ${index + 1}`,
-    })),
-    createdAt: sequence.createdAt?.toISOString() || new Date().toISOString(),
-    updatedAt: sequence.updatedAt?.toISOString() || new Date().toISOString(),
-  }), [sequence, sequenceAsanas]);
-
-  const handleAdd = useCallback(() => {
-    onAdd(sequence);
-  }, [sequence, onAdd]);
-
-  const handleDelete = useCallback(() => {
-    onDelete(sequence.id);
-  }, [sequence.id, onDelete]);
-
-  return (
-    <SequenceCard
-      sequence={userSequence}
-      onAdd={() => handleAdd()}
-      onDelete={() => handleDelete()}
-    />
-  );
-});
-
-// withObservables로 시퀀스의 관계 데이터 observe
-const SequenceCardWrapper = withObservables(
-  ['sequence'],
-  ({ sequence }: { sequence: Sequence }) => ({
-    sequence,
-    sequenceAsanas: sequence.asanasOrdered.observe().pipe(
-      switchMap(async (asanas) => {
-        // 각 SequenceAsana의 asana 관계도 로드
-        const withAsanas = await Promise.all(
-          asanas.map(async (sa) => {
-            try {
-              // Relation 타입의 fetch 메서드 호출
-              const asanaRelation = (sa as any).asana;
-              const asana = asanaRelation?.fetch ? await asanaRelation.fetch() : null;
-              return { ...sa, asana };
-            } catch {
-              return { ...sa, asana: null };
-            }
-          })
-        );
-        return withAsanas;
-      })
-    ),
-  })
-)(SequenceCardWrapperBase);
-
-// withObservables로 sequences 컬렉션 observe
-const enhanceMySequencesTab = withObservables([], () => ({
-  sequences: observeSequences(),
-}));
-
-const MySequencesTab = enhanceMySequencesTab(MySequencesTabContent);
 
 // ==================== Favorites Tab (with WatermelonDB) ====================
 interface FavoritesTabContentProps {
@@ -253,10 +177,17 @@ const AsanaInputContent = memo(({
   favoriteAsanas,
 }: AsanaInputContentProps) => {
   const [searchText, setSearchText] = useState("");
+  const asanaNameLanguage = useSettingsStore((state) => state.asanaNameLanguage);
 
-  const { addAsana: addToBuilder } = useSequenceBuilderStore();
+  const { addAsana: addToBuilder, deleteSequence: deleteSequenceFromStore } = useSequenceBuilderStore();
   const { toggleFavorite } = useAsanas();
-  const { deleteSequence } = useSequences();
+
+  // 영어 이름으로 표시 이름 가져오기
+  const getDisplayName = useCallback((englishName: string) => {
+    const asana = ASANA_DB.find((a) => a.english === englishName);
+    if (!asana) return englishName;
+    return asanaNameLanguage === "korean" ? asana.korean : asana.sanskrit;
+  }, [asanaNameLanguage]);
 
   // 즐겨찾기 아사나 이름 목록 (All 탭에서 사용)
   const favoriteAsanaNames = useMemo(
@@ -280,38 +211,34 @@ const AsanaInputContent = memo(({
     onChange(value.filter((a) => a !== asanaName));
   }, [value, onChange]);
 
-  // 시퀀스 선택 핸들러 (WatermelonDB Sequence에서 아사나 이름 추출)
-  const handleSelectSequence = useCallback(async (sequence: Sequence) => {
-    try {
-      // 시퀀스의 아사나 이름 목록 가져오기
-      const asanaNames = await getSequenceAsanaNames(sequence);
+  // 시퀀스 선택 핸들러 (Zustand UserSequence에서 아사나 이름 추출)
+  const handleSelectSequence = useCallback((sequence: UserSequence) => {
+    // 시퀀스의 아사나 이름 목록 가져오기
+    const asanaNames = sequence.asanas.map((a) => a.asanaName);
 
-      // 중복 제외하고 추가
-      const newAsanas = asanaNames.filter((name) => !value.includes(name));
+    // 중복 제외하고 추가
+    const newAsanas = asanaNames.filter((name) => !value.includes(name));
 
-      if (newAsanas.length > 0) {
-        onChange([...value, ...newAsanas]);
-        // 시퀀스 빌더 모드면 스토어에도 추가
-        if (sequenceBuilderMode) {
-          newAsanas.forEach((name) => addToBuilder(name));
-        }
+    if (newAsanas.length > 0) {
+      onChange([...value, ...newAsanas]);
+      // 시퀀스 빌더 모드면 스토어에도 추가
+      if (sequenceBuilderMode) {
+        newAsanas.forEach((name) => addToBuilder(name));
       }
-    } catch (error) {
-      console.error('Failed to load sequence asanas:', error);
     }
     Keyboard.dismiss();
   }, [value, onChange, sequenceBuilderMode, addToBuilder]);
 
-  const handleDeleteSequence = useCallback(async (id: string) => {
-    try {
-      await deleteSequence(id);
-    } catch (error) {
-      console.error('Failed to delete sequence:', error);
-    }
-  }, [deleteSequence]);
+  const handleDeleteSequence = useCallback((id: string) => {
+    deleteSequenceFromStore(id);
+  }, [deleteSequenceFromStore]);
 
-  const handleToggleFavorite = useCallback((asanaName: string) => {
-    toggleFavorite(asanaName);
+  const handleToggleFavorite = useCallback(async (asanaName: string) => {
+    try {
+      await toggleFavorite(asanaName);
+    } catch (error) {
+      console.error('Failed to toggle asana favorite:', error);
+    }
   }, [toggleFavorite]);
 
   return (
@@ -321,7 +248,7 @@ const AsanaInputContent = memo(({
         <View style={styles.chipsContainer}>
           {value.map((asanaName, index) => (
             <View key={index} style={styles.chip}>
-              <Text style={styles.chipText}>{asanaName}</Text>
+              <Text style={styles.chipText}>{getDisplayName(asanaName)}</Text>
               <Pressable onPress={() => removeAsana(asanaName)}>
                 <X size={14} color={Colors.text} />
               </Pressable>

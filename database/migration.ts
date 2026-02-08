@@ -9,6 +9,7 @@ import {
   sequenceAsanasCollection,
   asanasCollection,
 } from './index'
+import { setCreatedTimestamps, setRawTimestamp } from './types'
 
 // 기존 AsyncStorage 데이터 타입 정의
 interface LegacyAsanaRecord {
@@ -124,7 +125,7 @@ export async function migrateFromAsyncStorage(): Promise<{
             await asanasCollection.create((asana) => {
               asana.englishName = asanaName
               asana.isFavorite = true
-              ;(asana as any)._raw.created_at = now
+              setRawTimestamp(asana, 'created_at', now)
             })
             favoritesCount++
           } else {
@@ -147,8 +148,8 @@ export async function migrateFromAsyncStorage(): Promise<{
 
           const sequence = await sequencesCollection.create((seq) => {
             seq.name = legacySeq.name
-            ;(seq as any)._raw.created_at = createdAt || now
-            ;(seq as any)._raw.updated_at = updatedAt || now
+            setCreatedTimestamps(seq, createdAt || now)
+            setRawTimestamp(seq, 'updated_at', updatedAt || now)
           })
 
           // 시퀀스 아사나 관계 생성
@@ -167,7 +168,7 @@ export async function migrateFromAsyncStorage(): Promise<{
               const newAsana = await asanasCollection.create((asana) => {
                 asana.englishName = asanaName
                 asana.isFavorite = false
-                ;(asana as any)._raw.created_at = now
+                setRawTimestamp(asana, 'created_at', now)
               })
               asanaId = newAsana.id
             } else {
@@ -178,7 +179,7 @@ export async function migrateFromAsyncStorage(): Promise<{
               record.sequenceId = sequence.id
               record.asanaId = asanaId
               record.position = i
-              ;(record as any)._raw.created_at = now
+              setRawTimestamp(record, 'created_at', now)
             })
           }
 
@@ -200,8 +201,8 @@ export async function migrateFromAsyncStorage(): Promise<{
             log.intensity = legacySession.intensity
             log.note = legacySession.note || ''
             log.isFavorite = legacySession.isFavorite || false
-            ;(log as any)._raw.created_at = sessionDate || now
-            ;(log as any)._raw.updated_at = now
+            setCreatedTimestamps(log, sessionDate || now)
+            setRawTimestamp(log, 'updated_at', now)
           })
 
           // 아사나 기록 마이그레이션
@@ -213,7 +214,7 @@ export async function migrateFromAsyncStorage(): Promise<{
               record.position = i
               record.note = asana.note || ''
               record.status = asana.status
-              ;(record as any)._raw.created_at = now
+              setRawTimestamp(record, 'created_at', now)
             })
           }
 
@@ -223,7 +224,7 @@ export async function migrateFromAsyncStorage(): Promise<{
               record.practiceLogId = practiceLog.id
               record.photoPath = legacySession.images[i]
               record.position = i
-              ;(record as any)._raw.created_at = now
+              setRawTimestamp(record, 'created_at', now)
             })
           }
 

@@ -6,6 +6,7 @@ import {
   Pressable,
   FlatList,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -15,18 +16,24 @@ import {
   TrendingUp,
   ChevronRight,
   Play,
+  Layers,
+  Trash2,
 } from "lucide-react-native";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { Colors } from "@/constants/Colors";
 import { AsanaIcon, getAsanaInfo } from "@/components/AsanaIcon";
-import { AsanaHeatmapCompact } from "@/components/AsanaHeatmap";
-import { useAsanaHeatmapBatch, HeatmapData } from "@/hooks/useAsanaHeatmap";
+import { AsanaGrowthTreeCompact } from "@/components/AsanaGrowthTree";
+import { useAsanaGrowthLevelBatch, GrowthData } from "@/hooks/useAsanaGrowthLevel";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { useSequenceBuilderStore } from "@/store/useSequenceBuilderStore";
 import { practiceLogAsanasCollection, practiceLogsCollection, PracticeLogAsana } from "@/database";
+import { UserSequence } from "@/types";
 
 interface AsanaStats {
   name: string;
   sanskritName: string | null;
+  koreanName: string | null;
   count: number;
   lastPracticed: string;
 }
@@ -35,17 +42,26 @@ interface AsanaStats {
 const AsanaCard = memo(({
   item,
   index,
-  heatmapData,
+  growthData,
   onPress,
 }: {
   item: AsanaStats;
   index: number;
-  heatmapData: HeatmapData | null;
+  growthData: GrowthData | null;
   onPress: (name: string) => void;
 }) => {
+  const asanaNameLanguage = useSettingsStore((state) => state.asanaNameLanguage);
   const handlePress = useCallback(() => {
     onPress(item.name);
   }, [item.name, onPress]);
+
+  // 언어 설정에 따른 표시 이름
+  const displayName = asanaNameLanguage === "korean" && item.koreanName
+    ? item.koreanName
+    : item.sanskritName || item.name;
+  const subName = asanaNameLanguage === "korean"
+    ? item.sanskritName
+    : item.name;
 
   return (
     <Pressable onPress={handlePress} style={styles.listItem}>
@@ -60,18 +76,18 @@ const AsanaCard = memo(({
         />
       </View>
 
-      {/* Text info + Heatmap */}
+      {/* Text info + Growth Tree */}
       <View style={styles.textContainer}>
         <Text style={styles.englishName} numberOfLines={1}>
-          {item.name}
+          {displayName}
         </Text>
-        {item.sanskritName && (
+        {subName && (
           <Text style={styles.sanskritName} numberOfLines={1}>
-            {item.sanskritName}
+            {subName}
           </Text>
         )}
-        {/* 4주 히트맵 */}
-        <AsanaHeatmapCompact data={heatmapData} />
+        {/* 성장 나무 */}
+        <AsanaGrowthTreeCompact data={growthData} />
       </View>
 
       {/* Play count and arrow */}
@@ -98,6 +114,80 @@ const getRankColor = (index: number) => {
   return colors[index] || Colors.secondary;
 };
 
+// 시퀀스 카드 컴포넌트
+const SequenceCard = memo(({
+  sequence,
+  onDelete,
+  onLoad,
+}: {
+  sequence: UserSequence;
+  onDelete: (id: string) => void;
+  onLoad: (id: string) => void;
+}) => {
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      "시퀀스 삭제",
+      `"${sequence.name}" 시퀀스를 삭제하시겠습니까?`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => onDelete(sequence.id),
+        },
+      ]
+    );
+  }, [sequence.id, sequence.name, onDelete]);
+
+  const handleLoad = useCallback(() => {
+    onLoad(sequence.id);
+  }, [sequence.id, onLoad]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("ko-KR", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  return (
+    <View style={styles.sequenceCard}>
+      <View style={styles.sequenceIconContainer}>
+        <Layers size={24} color={Colors.primary} />
+      </View>
+      <View style={styles.sequenceInfo}>
+        <Text style={styles.sequenceName} numberOfLines={1}>
+          {sequence.name}
+        </Text>
+        <Text style={styles.sequenceDetail}>
+          {sequence.asanas.length}개 포즈 • {formatDate(sequence.createdAt)}
+        </Text>
+        <View style={styles.sequenceAsanaPreview}>
+          {sequence.asanas.slice(0, 4).map((asana, idx) => (
+            <View key={asana.itemId} style={styles.miniIcon}>
+              <AsanaIcon name={asana.asanaName} size={20} />
+            </View>
+          ))}
+          {sequence.asanas.length > 4 && (
+            <Text style={styles.moreText}>+{sequence.asanas.length - 4}</Text>
+          )}
+        </View>
+      </View>
+      <View style={styles.sequenceActions}>
+        <Pressable onPress={handleLoad} style={styles.loadButton}>
+          <Play size={16} color={Colors.background} fill={Colors.background} />
+        </Pressable>
+        <Pressable onPress={handleDelete} style={styles.deleteButton}>
+          <Trash2 size={16} color={Colors.textMuted} />
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
+type TabType = "asanas" | "sequences";
+
 // 메인 라이브러리 컴포넌트
 interface LibraryScreenContentProps {
   practiceLogAsanas: PracticeLogAsana[];
@@ -106,6 +196,21 @@ interface LibraryScreenContentProps {
 const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentProps) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<TabType>("asanas");
+
+  // 시퀀스 스토어
+  const savedSequences = useSequenceBuilderStore((state) => state.savedSequences);
+  const deleteSequence = useSequenceBuilderStore((state) => state.deleteSequence);
+  const loadSequenceToBuilder = useSequenceBuilderStore((state) => state.loadSequenceToBuilder);
+
+  const handleDeleteSequence = useCallback((id: string) => {
+    deleteSequence(id);
+  }, [deleteSequence]);
+
+  const handleLoadSequence = useCallback((id: string) => {
+    loadSequenceToBuilder(id);
+    router.push("/(modals)/write");
+  }, [loadSequenceToBuilder, router]);
 
   // 아사나별 통계 계산
   const asanaStats = useMemo(() => {
@@ -126,6 +231,7 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
         statsMap.set(asanaName, {
           name: asanaName,
           sanskritName: asanaInfo?.sanskrit || null,
+          koreanName: asanaInfo?.korean || null,
           count: 1,
           lastPracticed: createdAt,
         });
@@ -141,8 +247,8 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
     [asanaStats]
   );
 
-  // 히트맵 데이터 배치 로드
-  const { dataMap: heatmapDataMap, isLoading: heatmapLoading } = useAsanaHeatmapBatch(asanaNames);
+  // 성장 레벨 데이터 배치 로드
+  const { dataMap: growthDataMap, isLoading: growthLoading } = useAsanaGrowthLevelBatch(asanaNames);
 
   const filteredAsanas = useMemo(() => {
     if (!searchQuery.trim()) return asanaStats;
@@ -150,7 +256,8 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
     return asanaStats.filter(
       (asana) =>
         asana.name.toLowerCase().includes(query) ||
-        (asana.sanskritName && asana.sanskritName.toLowerCase().includes(query))
+        (asana.sanskritName && asana.sanskritName.toLowerCase().includes(query)) ||
+        (asana.koreanName && asana.koreanName.includes(query))
     );
   }, [asanaStats, searchQuery]);
 
@@ -172,11 +279,11 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
       <AsanaCard
         item={item}
         index={index}
-        heatmapData={heatmapDataMap.get(item.name) || null}
+        growthData={growthDataMap.get(item.name) || null}
         onPress={handleAsanaPress}
       />
     );
-  }, [heatmapDataMap, handleAsanaPress]);
+  }, [growthDataMap, handleAsanaPress]);
 
   const keyExtractor = useCallback((item: AsanaStats) => item.name, []);
 
@@ -198,6 +305,7 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
     <SafeAreaView
       className="flex-1"
       style={{ backgroundColor: Colors.background }}
+      edges={['top', 'bottom']}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -206,26 +314,71 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
           <Text style={styles.headerTitle}>Library</Text>
         </View>
         <Text style={styles.headerSubtitle}>
-          {totalAsanas} asanas • {totalPlays} total plays
+          {activeTab === "asanas"
+            ? `${totalAsanas} asanas • ${totalPlays} total plays`
+            : `${savedSequences.length}개의 시퀀스`}
         </Text>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search size={20} color={Colors.textMuted} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search asanas..."
-            placeholderTextColor={Colors.textMuted}
-            style={styles.searchInput}
-          />
-        </View>
+      {/* Tab Toggle */}
+      <View style={styles.tabContainer}>
+        <Pressable
+          onPress={() => setActiveTab("asanas")}
+          style={[
+            styles.tabButton,
+            activeTab === "asanas" && styles.tabButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "asanas" && styles.tabTextActive,
+            ]}
+          >
+            아사나
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("sequences")}
+          style={[
+            styles.tabButton,
+            activeTab === "sequences" && styles.tabButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "sequences" && styles.tabTextActive,
+            ]}
+          >
+            내 시퀀스
+          </Text>
+          {savedSequences.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{savedSequences.length}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
-      {/* List */}
-      {filteredAsanas.length === 0 ? (
+      {activeTab === "asanas" ? (
+        <>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Search size={20} color={Colors.textMuted} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search asanas..."
+                placeholderTextColor={Colors.textMuted}
+                style={styles.searchInput}
+              />
+            </View>
+          </View>
+
+          {/* Asana List */}
+          {filteredAsanas.length === 0 ? (
         <View style={styles.emptyContainer}>
           {asanaStats.length === 0 ? (
             <>
@@ -258,12 +411,44 @@ const LibraryScreenContent = memo(({ practiceLogAsanas }: LibraryScreenContentPr
           maxToRenderPerBatch={10}
           windowSize={10}
           initialNumToRender={8}
-          getItemLayout={(data, index) => ({
-            length: 120, // 대략적인 아이템 높이
-            offset: 120 * index + 14 * index, // 높이 + separator
-            index,
-          })}
+          getItemLayout={(data, index) => {
+            const ITEM_HEIGHT = 120;
+            const SEPARATOR_HEIGHT = 14;
+            return {
+              length: ITEM_HEIGHT,
+              offset: (ITEM_HEIGHT + SEPARATOR_HEIGHT) * index,
+              index,
+            };
+          }}
         />
+      )}
+        </>
+      ) : (
+        /* Sequences List */
+        savedSequences.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Layers size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyTitle}>시퀀스가 없어요</Text>
+            <Text style={styles.emptyText}>
+              New Session에서 아사나를 선택하고{"\n"}시퀀스로 저장해보세요!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={savedSequences}
+            renderItem={({ item }) => (
+              <SequenceCard
+                sequence={item}
+                onDelete={handleDeleteSequence}
+                onLoad={handleLoadSequence}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        )
       )}
     </SafeAreaView>
   );
@@ -433,5 +618,124 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: "center",
     letterSpacing: -0.5,
+    lineHeight: 24,
+  },
+  // Tab styles
+  tabContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 29,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  tabButtonActive: {
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  tabTextActive: {
+    color: Colors.background,
+  },
+  tabBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: Colors.background,
+  },
+  // Sequence card styles
+  sequenceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sequenceIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  sequenceInfo: {
+    flex: 1,
+  },
+  sequenceName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: Colors.text,
+    letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  sequenceDetail: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  sequenceAsanaPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  miniIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: Colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  moreText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginLeft: 4,
+  },
+  sequenceActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  loadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

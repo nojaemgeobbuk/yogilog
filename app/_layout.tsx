@@ -5,14 +5,16 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { useYogaStore } from "@/store/useYogaStore";
 import { BadgeCelebrationModal } from "@/components/BadgeCelebrationModal";
+import { useBadgeObserver } from "@/hooks/useBadgeObserver";
 import { Colors } from "@/constants/Colors";
 import { DatabaseProvider } from "@/database/DatabaseProvider";
 import { migrateFromAsyncStorage, checkMigrationNeeded } from "@/database/migration";
+import { LotusSplash } from "@/components/LotusSplash";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -43,10 +45,16 @@ export default function RootLayout() {
   });
   const [migrationComplete, setMigrationComplete] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
+
+  // 네이티브 스플래시 즉시 숨김 (커스텀 애니메이션 사용)
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   // 마이그레이션 실행
   useEffect(() => {
@@ -70,21 +78,28 @@ export default function RootLayout() {
     runMigration();
   }, []);
 
-  useEffect(() => {
-    if (loaded && migrationComplete) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, migrationComplete]);
+  // 스플래시 애니메이션 완료 핸들러
+  const handleSplashComplete = () => {
+    setSplashAnimationComplete(true);
+  };
 
-  if (!loaded || !migrationComplete) {
+  // 앱 로딩이 완료되지 않았거나 스플래시 애니메이션이 진행 중일 때
+  const isReady = loaded && migrationComplete;
+  const showSplash = !splashAnimationComplete;
+
+  if (showSplash) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>
-          {!migrationComplete ? '데이터 준비 중...' : '로딩 중...'}
-        </Text>
+      <View style={styles.splashContainer}>
+        <LotusSplash
+          onAnimationComplete={handleSplashComplete}
+        />
       </View>
     );
+  }
+
+  // 앱이 아직 준비되지 않았으면 빈 화면 (스플래시 이후)
+  if (!isReady) {
+    return <View style={styles.loadingContainer} />;
   }
 
   if (migrationError) {
@@ -100,20 +115,20 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  splashContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: Colors.background,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: Colors.textMuted,
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
 });
 
 function RootLayoutNav() {
+  // WatermelonDB Observable을 통해 practice_logs 변경 감지 및 배지 자동 체크
+  useBadgeObserver();
+
   const newlyUnlockedBadgeIds = useYogaStore(
     (state) => state.newlyUnlockedBadgeIds
   );
@@ -159,6 +174,12 @@ function RootLayoutNav() {
           />
           <Stack.Screen name="library/[asanaName]" />
           <Stack.Screen name="edit/[id]" />
+          <Stack.Screen
+            name="settings"
+            options={{
+              animation: "slide_from_right",
+            }}
+          />
         </Stack>
 
         <BadgeCelebrationModal
