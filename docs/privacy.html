@@ -1,46 +1,152 @@
-개인정보처리방침
-요기로그(Yogilog)(이하 '앱')는 사용자의 개인정보를 보호하고 관련 법령을 준수하기 위하여 다음과 같은 처리방침을 수립·공개합니다.
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>요기로그(Yogilog) - 개인정보처리방침</title>
+    <style>
+        /* 앱의 메인 색상을 반영 */
+        :root {
+            --bg-color: #121216;
+            --primary-color: #A238FF;
+            --accent-color: #CCFF00;
+            --text-color: #FFFFFF;
+            --muted-text: #9CA3AF;
+            --card-bg: rgba(88, 28, 135, 0.2);
+            --border-color: #374151;
+        }
 
-1. 개인정보의 처리 목적
-앱은 다음의 목적을 위하여 최소한의 개인정보를 처리합니다. 처리하고 있는 개인정보는 다음의 목적 이외의 용도로는 이용되지 않으며, 이용 목적이 변경되는 경우에는 별도의 동의를 받는 등 필요한 조치를 이행할 예정입니다.
-•	요가 수련 기록 및 관리: 수련 시간, 강도, 아사나(포즈), 메모 및 사진 저장
-•	사용자 통계 및 시각화: 수련 히트맵, 성장 트리 등 데이터 시각화 서비스 제공
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.7;
+            margin: 0;
+            padding: 0;
+        }
 
-2. 처리하는 개인정보의 항목
-앱은 서비스 제공을 위해 다음과 같은 정보를 사용자의 기기 내에서 처리합니다.
-•	수련 관련 정보: 수련 제목, 날짜, 수련 시간, 운동 강도, 메모, 수련 장소
-•	아사나 데이터: 선택한 요가 포즈 목록 및 숙련도 상태
-•	미디어 파일: 사용자가 직접 등록한 수련 사진(로컬 경로 저장)
-•	기기 권한 관련: 사진 앨범 접근(사진 등록 시), 파일 저장소 접근(데이터 백업/복구 시)
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
 
-3. 개인정보의 처리 및 보유 기간
-•	앱은 사용자의 개인정보를 외부 서버에 전송하거나 저장하지 않습니다.
-•	모든 데이터는 사용자의 기기 내 로컬 데이터베이스(WatermelonDB, AsyncStorage)에 저장되며, 사용자가 앱을 삭제하거나 직접 데이터를 삭제하기 전까지 보유됩니다.
+        /* 헤더 스타일: 음악 플레이어 느낌 한 방울 */
+        header {
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
 
-4. 개인정보의 제3자 제공 및 위탁
-앱은 사용자의 개인정보를 제3자에게 제공하거나 외부 업체에 처리를 위탁하지 않습니다. 모든 데이터 처리는 사용자의 기기 내에서만 이루어집니다.
+        h1 {
+            color: var(--accent-color);
+            font-size: 2rem;
+            margin: 0;
+            letter-spacing: -0.05rem;
+        }
 
-5. 정보주체의 권리·의무 및 그 행사방법
-사용자는 정보주체로서 다음과 같은 권리를 행사할 수 있습니다.
-•	데이터 열람 및 수정: 앱 내 '기록' 및 '설정' 메뉴를 통해 본인의 데이터를 언제든지 확인하고 수정할 수 있습니다.
-•	데이터 삭제: 개별 수련 기록 삭제 또는 앱 삭제를 통해 모든 개인정보를 즉시 파기할 수 있습니다.
-•	데이터 이동: 앱 내 내보내기(Export) 기능을 통해 저장된 데이터를 백업 파일 형태로 추출할 수 있습니다.
+        .last-updated {
+            color: var(--muted-text);
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
 
-6. 개인정보의 파기
-•	앱은 별도의 서버를 운영하지 않으므로 사용자가 기기에서 앱을 삭제하는 즉시 기기 내에 저장된 모든 데이터가 물리적으로 파기됩니다.
+        /* 섹션별 카드 스타일 */
+        section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
 
-7. 개인정보의 안전성 확보 조치
-앱은 사용자의 데이터를 보호하기 위해 다음과 같은 조치를 취하고 있습니다.
-•	로컬 저장소 보안: 운영체제(iOS/Android)에서 제공하는 샌드박스 보안 모델을 통해 타 앱으로부터 데이터를 격리하여 보호합니다.
-•	데이터 백업 관리: 사용자가 명시적으로 내보내기 기능을 실행할 때만 데이터가 외부 파일로 생성됩니다.
+        h2 {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            margin-top: 0;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 12px;
+        }
 
-8. 개인정보 보호책임자
-앱 사용 중 발생하는 개인정보 관련 문의사항은 아래의 보호책임자에게 연락해주시기 바랍니다.
-•	성명: 강승현
-•	연락처: kkotongkim@gmail.com
+        ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
 
-9. 개인정보 처리방침의 변경
-이 개인정보처리방침은 법령 및 방침에 따른 변경 내용의 추가, 삭제 및 교정이 있는 경우에는 변경사항을 앱 내 공지사항 또는 마켓 설명을 통해 알릴 것입니다.
-________________________________________
-공고일자: 2026년 2월 13일 시행일자: 2026년 2월 13일
+        li {
+            margin-bottom: 8px;
+        }
 
+        li::marker {
+            color: var(--accent-color);
+        }
+
+        .contact-info {
+            background: rgba(204, 255, 0, 0.1);
+            border: 1px dashed var(--accent-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            color: var(--muted-text);
+            font-size: 0.85rem;
+        }
+
+        /* 반응형 모바일 대응 */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            section { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Yogilog 개인정보처리방침</h1>
+            <p class="last-updated">최종 수정일: 2026년 2월 13일</p>
+        </header>
+
+        <section>
+            <h2>1. 개인정보의 처리 목적</h2>
+            <p><strong>요기로그(Yogilog)</strong>는 사용자의 수련 기록을 기기 내에서 관리하고 시각화하기 위해 최소한의 정보를 처리하며, 외부 서버로 데이터를 전송하지 않습니다.</p>
+        </section>
+
+        <section>
+            <h2>2. 처리하는 정보 항목</h2>
+            <p>앱은 서비스 제공을 위해 다음 정보를 <strong>사용자 기기 내 로컬 저장소</strong>에 저장합니다:</p>
+            <ul>
+                <li>수련 기록: 제목, 날짜, 시간, 강도, 메모, 수련 장소</li>
+                <li>아사나 데이터: 요가 포즈 목록 및 숙련도 상태</li>
+                <li>미디어: 수련 인증 사진 (기기 앨범 접근 권한 필요)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>3. 정보의 보유 및 파기</h2>
+            <p>모든 데이터는 사용자의 기기에만 존재하며, 앱을 삭제하거나 사용자가 직접 삭제하는 즉시 모든 데이터가 영구히 파기됩니다.</p>
+        </section>
+
+        <section>
+            <h2>4. 정보주체의 권리</h2>
+            <p>사용자는 언제든지 앱 내 메뉴를 통해 자신의 데이터를 열람, 수정, 삭제할 수 있으며 '백업 파일 내보내기' 기능을 통해 데이터를 추출할 권리가 있습니다.</p>
+        </section>
+
+        <section>
+            <h2>5. 개인정보 보호책임자</h2>
+            <p>문의사항은 아래의 책임자에게 연락주시기 바랍니다.</p>
+            <div class="contact-info">
+                <strong>성명:</strong> 강승현 (Gemini)<br>
+                <strong>소속:</strong> 요기로그 개발팀
+            </div>
+        </section>
+
+        <footer>
+            &copy; 2026 Yogilog. All rights reserved.
+        </footer>
+    </div>
+</body>
+</html>
