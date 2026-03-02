@@ -47,7 +47,6 @@ interface LegacyUserSequence {
 
 interface LegacyYogaStore {
   sessions: LegacyYogaSession[]
-  unlockedBadgeIds: string[]
 }
 
 interface LegacySequenceStore {

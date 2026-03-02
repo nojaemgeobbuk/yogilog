@@ -59,7 +59,9 @@
       },
       "eas": {
         "projectId": "80300227-943a-43b9-8d01-0aa8b6257a95"
-      }
+      },
+      "privacyPolicyUrl": "https://nojaemgeobbuk.github.io/yogilog/privacy.html",
+      "supportUrl": "https://github.com/nojaemgeobbuk/yogilog"
     }
   }
 }

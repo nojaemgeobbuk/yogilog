@@ -1,11 +1,18 @@
 import { forwardRef } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
-import { Disc3 } from "lucide-react-native";
-import { YogaSession } from "@/types";
+import { Disc3, Circle } from "lucide-react-native";
+import Svg, { Path, Circle as SvgCircle, G } from "react-native-svg";
 import { Colors } from "@/constants/Colors";
 
 interface ShareCardProps {
-  session: YogaSession;
+  session: {
+    title: string;
+    date: string;
+    duration: number;
+    intensity: number;
+    images?: string[];
+    asanas?: Array<{ name: string }>;
+  };
 }
 
 export const ShareCard = forwardRef<View, ShareCardProps>(
@@ -25,10 +32,15 @@ export const ShareCard = forwardRef<View, ShareCardProps>(
       return `${mins} min`;
     };
 
+    const maxAsanasToShow = 5;
+    const asanas = session.asanas || [];
+    const displayAsanas = asanas.slice(0, maxAsanasToShow);
+    const remainingCount = asanas.length - maxAsanasToShow;
+
     return (
       <View ref={ref} style={styles.card}>
         {/* Cover Image */}
-        {session.images.length > 0 ? (
+        {session.images && session.images.length > 0 ? (
           <Image
             source={{ uri: session.images[0] }}
             style={styles.coverImage}
@@ -36,7 +48,21 @@ export const ShareCard = forwardRef<View, ShareCardProps>(
           />
         ) : (
           <View style={styles.coverPlaceholder}>
-            <Text style={{ fontSize: 96 }}>🧘</Text>
+            <Svg width={140} height={140} viewBox="-100 -100 200 200">
+              <G>
+                {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+                  <Path
+                    key={i}
+                    d="M 0 -20 C -15 -40, -20 -65, 0 -80 C 20 -65, 15 -40, 0 -20 Z"
+                    fill="#D98357"
+                    stroke="#000000"
+                    strokeWidth={1.8}
+                    transform={`rotate(${angle})`}
+                  />
+                ))}
+                <SvgCircle cx={0} cy={0} r={12} fill="#C4764A" stroke="#000000" strokeWidth={1.5} />
+              </G>
+            </Svg>
           </View>
         )}
 
@@ -56,14 +82,32 @@ export const ShareCard = forwardRef<View, ShareCardProps>(
             {"☆".repeat(5 - session.intensity)}
           </Text>
 
-          {/* Hashtags */}
-          {session.hashtags.length > 0 && (
-            <View style={styles.tagsRow}>
-              {session.hashtags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
-                </View>
-              ))}
+          {/* Asanas List (Compact) */}
+          {asanas.length > 0 && (
+            <View style={styles.asanasSection}>
+              <Text style={styles.asanasTitle}>
+                Poses ({asanas.length})
+              </Text>
+              <View style={styles.asanasList}>
+                {displayAsanas.map((asanaLog, index) => (
+                  <View key={index} style={styles.asanaItem}>
+                    <Circle
+                      size={4}
+                      fill={Colors.primary}
+                      color={Colors.primary}
+                      style={styles.asanaBullet}
+                    />
+                    <Text style={styles.asanaText} numberOfLines={1}>
+                      {asanaLog.name}
+                    </Text>
+                  </View>
+                ))}
+                {remainingCount > 0 && (
+                  <Text style={styles.remainingText}>
+                    외 {remainingCount}개
+                  </Text>
+                )}
+              </View>
             </View>
           )}
 
@@ -131,25 +175,44 @@ const styles = StyleSheet.create({
   intensityStars: {
     fontSize: 18,
     color: Colors.primary,
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  tagsRow: {
+  // Asanas Section
+  asanasSection: {
+    marginBottom: 16,
+  },
+  asanasTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.textMuted,
+    marginBottom: 8,
+    letterSpacing: -0.3,
+    textTransform: "uppercase",
+  },
+  asanasList: {
+    gap: 6,
+  },
+  asanaItem: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 19,
+    alignItems: "center",
+    gap: 8,
   },
-  tag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  asanaBullet: {
+    marginTop: 1,
   },
-  tagText: {
-    color: Colors.text,
+  asanaText: {
     fontSize: 14,
-    letterSpacing: -0.5,
+    color: Colors.text,
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  remainingText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontStyle: "italic",
+    marginLeft: 12,
+    marginTop: 4,
+    letterSpacing: -0.3,
   },
   branding: {
     flexDirection: "row",

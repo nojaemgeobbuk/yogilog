@@ -8,9 +8,6 @@ import { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { useYogaStore } from "@/store/useYogaStore";
-import { BadgeCelebrationModal } from "@/components/BadgeCelebrationModal";
-import { useBadgeObserver } from "@/hooks/useBadgeObserver";
 import { Colors } from "@/constants/Colors";
 import { DatabaseProvider } from "@/database/DatabaseProvider";
 import { migrateFromAsyncStorage, checkMigrationNeeded } from "@/database/migration";
@@ -62,7 +59,9 @@ export default function RootLayout() {
       try {
         const needsMigration = await checkMigrationNeeded();
         if (needsMigration) {
-          console.log('[App] Running migration...');
+          if (__DEV__) {
+            console.log('[App] Running migration...');
+          }
           const result = await migrateFromAsyncStorage();
           if (!result.success) {
             setMigrationError(result.error || 'Migration failed');
@@ -102,7 +101,7 @@ export default function RootLayout() {
     return <View style={styles.loadingContainer} />;
   }
 
-  if (migrationError) {
+  if (migrationError && __DEV__) {
     console.warn('[App] Migration error occurred:', migrationError);
     // 에러가 있어도 앱은 계속 실행 (기존 데이터 사용)
   }
@@ -126,31 +125,6 @@ const styles = StyleSheet.create({
 });
 
 function RootLayoutNav() {
-  // WatermelonDB Observable을 통해 practice_logs 변경 감지 및 배지 자동 체크
-  useBadgeObserver();
-
-  const newlyUnlockedBadgeIds = useYogaStore(
-    (state) => state.newlyUnlockedBadgeIds
-  );
-  const clearNewlyUnlockedBadges = useYogaStore(
-    (state) => state.clearNewlyUnlockedBadges
-  );
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationBadgeIds, setCelebrationBadgeIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (newlyUnlockedBadgeIds.length > 0) {
-      setCelebrationBadgeIds([...newlyUnlockedBadgeIds]);
-      setShowCelebration(true);
-    }
-  }, [newlyUnlockedBadgeIds]);
-
-  const handleCloseCelebration = () => {
-    setShowCelebration(false);
-    setCelebrationBadgeIds([]);
-    clearNewlyUnlockedBadges();
-  };
-
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background }}>
       <ThemeProvider value={warmMinimalTheme}>
@@ -168,8 +142,7 @@ function RootLayoutNav() {
             options={{
               animation: "fade_from_bottom",
               animationDuration: 300,
-              gestureEnabled: true,
-              gestureDirection: "vertical",
+              gestureEnabled: false,
             }}
           />
           <Stack.Screen name="library/[asanaName]" />
@@ -181,12 +154,6 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
-
-        <BadgeCelebrationModal
-          visible={showCelebration}
-          badgeIds={celebrationBadgeIds}
-          onClose={handleCloseCelebration}
-        />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

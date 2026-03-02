@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  Modal,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
@@ -71,7 +70,6 @@ const SessionDetailContent = ({
   const { deletePracticeLog, toggleFavorite } = usePracticeLogs();
 
   const shareCardRef = useRef<View>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [noteWebViewHeight, setNoteWebViewHeight] = useState(150);
 
   // practiceLog가 삭제되었는지 체크
@@ -138,15 +136,11 @@ const SessionDetailContent = ({
   };
 
   const handleShare = async () => {
-    setShowShareModal(true);
-    setTimeout(async () => {
-      try {
-        await shareViewAsImage(shareCardRef);
-      } catch (error) {
-        Alert.alert("Error", "Failed to share. Please try again.");
-      }
-      setShowShareModal(false);
-    }, 500);
+    try {
+      await shareViewAsImage(shareCardRef);
+    } catch (error) {
+      Alert.alert("Error", "Failed to share. Please try again.");
+    }
   };
 
   const handleDelete = () => {
@@ -437,12 +431,10 @@ const SessionDetailContent = ({
         </Pressable>
       </View>
 
-      {/* Share Modal */}
-      <Modal visible={showShareModal} transparent>
-        <View className="flex-1 items-center justify-center bg-black/80">
-          <ShareCard ref={shareCardRef} session={session} />
-        </View>
-      </Modal>
+      {/* ShareCard - 항상 화면 밖에 렌더링하여 캡처 준비 */}
+      <View style={styles.offscreenCard} pointerEvents="none">
+        <ShareCard ref={shareCardRef} session={session} />
+      </View>
     </SafeAreaView>
   );
 };
@@ -718,5 +710,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: Colors.background,
     letterSpacing: -0.5,
+  },
+  offscreenCard: {
+    position: "absolute",
+    left: -1000,
+    top: -1000,
   },
 });

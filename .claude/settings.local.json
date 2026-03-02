@@ -59,7 +59,8 @@
       "Bash(timeout:*)",
       "Bash(more:*)",
       "Bash(dir \"C:\\\\owoumm\\\\yogilog\\\\assets\\\\images\\\\asana-icons\" /B)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }

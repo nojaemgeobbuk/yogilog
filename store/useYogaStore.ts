@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { YogaSession, YogaStore, AsanaRecord } from "@/types";
-import { checkAchievements } from "@/utils/achievements";
 
 // 기존 string[] 형태의 asanas를 AsanaRecord[]로 마이그레이션
 function migrateAsanas(asanas: unknown): AsanaRecord[] {
@@ -32,23 +31,17 @@ export const useYogaStore = create<YogaStore>()(
   persist(
     (set, get) => ({
       sessions: [],
-      unlockedBadgeIds: [],
-      newlyUnlockedBadgeIds: [],
       _hasHydrated: false,
 
       addSession: (sessionData) => {
         const newSession: YogaSession = {
           ...sessionData,
           id: Crypto.randomUUID(),
-          isFavorite: false, // 새 세션의 즐겨찾기 초기값
+          isFavorite: false,
         };
         set((state) => ({
           sessions: [newSession, ...state.sessions],
         }));
-
-        // 세션 추가 후 배지 확인
-        const newBadges = get().checkAndUnlockBadges();
-        return newBadges;
       },
 
       updateSession: (id, updates) => {
@@ -77,46 +70,13 @@ export const useYogaStore = create<YogaStore>()(
               : session
           ),
         }));
-        // 즐겨찾기 변경 후 배지 확인
-        get().checkAndUnlockBadges();
-      },
-
-      unlockBadge: (badgeId) => {
-        set((state) => {
-          if (state.unlockedBadgeIds.includes(badgeId)) {
-            return state; // 이미 획득한 배지
-          }
-          return {
-            unlockedBadgeIds: [...state.unlockedBadgeIds, badgeId],
-            newlyUnlockedBadgeIds: [...state.newlyUnlockedBadgeIds, badgeId],
-          };
-        });
-      },
-
-      clearNewlyUnlockedBadges: () => {
-        set({ newlyUnlockedBadgeIds: [] });
-      },
-
-      checkAndUnlockBadges: () => {
-        const { sessions, unlockedBadgeIds } = get();
-        const newBadgeIds = checkAchievements(sessions, unlockedBadgeIds);
-
-        if (newBadgeIds.length > 0) {
-          set((state) => ({
-            unlockedBadgeIds: [...state.unlockedBadgeIds, ...newBadgeIds],
-            newlyUnlockedBadgeIds: [...state.newlyUnlockedBadgeIds, ...newBadgeIds],
-          }));
-        }
-
-        return newBadgeIds;
       },
     }),
     {
       name: "yogilog-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state, error) => {
+      onRehydrateStorage: () => (state) => {
         if (state?.sessions) {
-          // 기존 세션 마이그레이션: isFavorite + asanas 형식 변환
           const migratedSessions = state.sessions.map((session) => ({
             ...session,
             isFavorite: session.isFavorite ?? false,
@@ -124,12 +84,10 @@ export const useYogaStore = create<YogaStore>()(
           }));
           useYogaStore.setState({ sessions: migratedSessions });
         }
-        // 성공이든 실패든 hydration 완료로 표시
         useYogaStore.setState({ _hasHydrated: true });
       },
       partialize: (state) => ({
         sessions: state.sessions,
-        unlockedBadgeIds: state.unlockedBadgeIds,
       }),
     }
   )

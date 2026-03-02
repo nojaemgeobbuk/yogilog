@@ -23,17 +23,12 @@ export interface YogaSession {
 
 export interface YogaStore {
   sessions: YogaSession[];
-  unlockedBadgeIds: string[];
-  newlyUnlockedBadgeIds: string[]; // 새로 획득한 배지 (축하 모달용)
   _hasHydrated: boolean;
   addSession: (session: Omit<YogaSession, "id" | "isFavorite">) => void;
   updateSession: (id: string, session: Partial<YogaSession>) => void;
   deleteSession: (id: string) => void;
   getSession: (id: string) => YogaSession | undefined;
   toggleFavorite: (id: string) => void;
-  unlockBadge: (badgeId: string) => void;
-  clearNewlyUnlockedBadges: () => void;
-  checkAndUnlockBadges: () => string[]; // 새로 획득한 배지 ID 반환
 }
 
 // 아사나 상태 라벨 및 색상 매핑 (The Layered Minimal palette)

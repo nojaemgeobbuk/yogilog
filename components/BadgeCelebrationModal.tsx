@@ -44,7 +44,9 @@ export function BadgeCelebrationModal({
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      console.log('[BadgeCelebration] Haptics not available');
+      if (__DEV__) {
+        console.log('[BadgeCelebration] Haptics not available');
+      }
     }
   }, []);
 

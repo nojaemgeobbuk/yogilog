@@ -68,6 +68,31 @@ export function AlbumPlaylist({ data, onItemPress }: AlbumPlaylistProps) {
     }
   }, [onItemPress]);
 
+  // 3D 책장 넘기기 애니메이션 (hooks must be called before any early returns)
+  const animationStyle = useCallback((value: number) => {
+    'worklet';
+    const safeValue = Math.max(-1, Math.min(1, value));
+
+    const translateX = interpolate(
+      safeValue,
+      [-1, 0, 1],
+      [-CARD_WIDTH * 0.55, 0, CARD_WIDTH * 0.55]
+    );
+    const scale = interpolate(safeValue, [-1, 0, 1], [0.88, 1, 0.88]);
+    const rotateY = `${interpolate(safeValue, [-1, 0, 1], [30, 0, -30])}deg`;
+    const opacity = interpolate(safeValue, [-1, 0, 1], [0.7, 1, 0.7]);
+
+    return {
+      transform: [
+        { translateX },
+        { scale },
+        { perspective: 1200 },
+        { rotateY },
+      ],
+      opacity,
+    };
+  }, []);
+
   // 빈 데이터
   if (!data || data.length === 0) {
     return (
@@ -92,31 +117,6 @@ export function AlbumPlaylist({ data, onItemPress }: AlbumPlaylistProps) {
       </View>
     );
   }
-
-  // 3D 책장 넘기기 애니메이션
-  const animationStyle = useCallback((value: number) => {
-    'worklet';
-    const safeValue = Math.max(-1, Math.min(1, value));
-
-    const translateX = interpolate(
-      safeValue,
-      [-1, 0, 1],
-      [-CARD_WIDTH * 0.55, 0, CARD_WIDTH * 0.55]
-    );
-    const scale = interpolate(safeValue, [-1, 0, 1], [0.88, 1, 0.88]);
-    const rotateY = `${interpolate(safeValue, [-1, 0, 1], [30, 0, -30])}deg`;
-    const opacity = interpolate(safeValue, [-1, 0, 1], [0.7, 1, 0.7]);
-
-    return {
-      transform: [
-        { translateX },
-        { scale },
-        { perspective: 1200 },
-        { rotateY },
-      ],
-      opacity,
-    };
-  }, []);
 
   return (
     <View style={styles.container}>
