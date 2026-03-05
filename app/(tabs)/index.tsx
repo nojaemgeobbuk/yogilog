@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, Pressable, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Plus, Star } from "lucide-react-native";
+import { Star } from "lucide-react-native";
+import Svg, { Path, Circle as SvgCircle, G } from "react-native-svg";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import Animated, {
@@ -100,6 +101,7 @@ interface HomeScreenContentProps {
 
 const HomeScreenContent = ({ practiceLogs }: HomeScreenContentProps) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterType>("all");
   const [sessionsMap, setSessionsMap] = useState<Map<string, SessionItem>>(new Map());
   const [loadedCount, setLoadedCount] = useState(0);
@@ -220,6 +222,7 @@ const HomeScreenContent = ({ practiceLogs }: HomeScreenContentProps) => {
       </Animated.View>
 
       <Animated.ScrollView
+        style={{ flex: 1 }}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         bounces={true}
@@ -266,6 +269,7 @@ const HomeScreenContent = ({ practiceLogs }: HomeScreenContentProps) => {
               Favorites ({favoriteCount})
             </Text>
           </Pressable>
+
         </View>
 
         <View style={styles.deckSection}>
@@ -277,15 +281,42 @@ const HomeScreenContent = ({ practiceLogs }: HomeScreenContentProps) => {
         </View>
       </Animated.ScrollView>
 
-      <View style={styles.buttonContainer}>
-        <Pressable
+      {/* Breath in 버튼 */}
+      <View style={styles.breathButtonContainer}>
+        <TouchableOpacity
           onPress={handleAddSession}
-          style={styles.addButton}
+          activeOpacity={0.8}
+          style={styles.breathButton}
         >
-          <Plus size={22} color={Colors.background} strokeWidth={2.5} />
-          <Text style={styles.addButtonText}>New Session</Text>
-        </Pressable>
+          <Svg width={28} height={28} viewBox="-50 -50 100 100">
+            {[45, 135, 225, 315].map((angle, i) => (
+              <G key={`op-${i}`} transform={`rotate(${angle})`}>
+                <Path
+                  d="M 0 -38 C 12 -19 14 -6 0 0 C -14 -6 -12 -19 0 -38 Z"
+                  fill={Colors.background}
+                  stroke={Colors.background}
+                  strokeWidth={0.8}
+                  opacity={0.9}
+                />
+              </G>
+            ))}
+            {[0, 90, 180, 270].map((angle, i) => (
+              <G key={`ip-${i}`} transform={`rotate(${angle})`}>
+                <Path
+                  d="M 0 -30 C 14 -18 16 -6 0 0 C -16 -6 -14 -18 0 -30 Z"
+                  fill={Colors.background}
+                  stroke={Colors.background}
+                  strokeWidth={1}
+                />
+              </G>
+            ))}
+            <SvgCircle cx={0} cy={0} r={8} fill={Colors.background} />
+            <SvgCircle cx={0} cy={0} r={4} fill={Colors.primary} />
+          </Svg>
+          <Text style={styles.breathButtonText}>당신의 호흡을 기록하세요</Text>
+        </TouchableOpacity>
       </View>
+
     </SafeAreaView>
   );
 };
@@ -376,29 +407,29 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: SCREEN_HEIGHT * 0.55,
   },
-  buttonContainer: {
-    paddingHorizontal: 29,
-    paddingBottom: 16,
+  breathButtonContainer: {
     paddingTop: 8,
+    paddingBottom: 93,
+    alignItems: 'center',
   },
-  addButton: {
+  breathButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 11,
+    paddingHorizontal: 24,
     borderRadius: 9999,
-    gap: 8,
+    gap: 14,
     backgroundColor: Colors.primary,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 12,
     elevation: 6,
   },
-  addButtonText: {
-    fontSize: 17,
+  breathButtonText: {
+    fontSize: 16,
     fontWeight: "700",
     color: Colors.background,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
 });
