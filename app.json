@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yogilog",
     "slug": "yogilog",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "newArchEnabled": true,
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

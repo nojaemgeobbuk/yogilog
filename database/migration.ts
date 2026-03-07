@@ -72,11 +72,11 @@ export async function migrateFromAsyncStorage(): Promise<{
     // 마이그레이션 완료 여부 확인
     const migrationCompleted = await AsyncStorage.getItem(MIGRATION_COMPLETED_KEY)
     if (migrationCompleted === 'true') {
-      console.log('[Migration] Already completed, skipping...')
+      if (__DEV__) { console.log('[Migration] Already completed, skipping...') }
       return { success: true, sessionsCount: 0, sequencesCount: 0, favoritesCount: 0 }
     }
 
-    console.log('[Migration] Starting migration from AsyncStorage to WatermelonDB...')
+    if (__DEV__) { console.log('[Migration] Starting migration from AsyncStorage to WatermelonDB...') }
 
     // 1. 기존 데이터 로드
     const yogaStoreRaw = await AsyncStorage.getItem('yogilog-storage')
@@ -112,7 +112,7 @@ export async function migrateFromAsyncStorage(): Promise<{
 
       // 2. 즐겨찾기 아사나 마이그레이션
       if (sequenceStore?.favoriteAsanas && sequenceStore.favoriteAsanas.length > 0) {
-        console.log(`[Migration] Migrating ${sequenceStore.favoriteAsanas.length} favorite asanas...`)
+        if (__DEV__) { console.log(`[Migration] Migrating ${sequenceStore.favoriteAsanas.length} favorite asanas...`) }
 
         for (const asanaName of sequenceStore.favoriteAsanas) {
           // 이미 존재하는지 확인
@@ -139,7 +139,7 @@ export async function migrateFromAsyncStorage(): Promise<{
 
       // 3. 시퀀스 마이그레이션
       if (sequenceStore?.savedSequences && sequenceStore.savedSequences.length > 0) {
-        console.log(`[Migration] Migrating ${sequenceStore.savedSequences.length} sequences...`)
+        if (__DEV__) { console.log(`[Migration] Migrating ${sequenceStore.savedSequences.length} sequences...`) }
 
         for (const legacySeq of sequenceStore.savedSequences) {
           const createdAt = new Date(legacySeq.createdAt).getTime()
@@ -188,7 +188,7 @@ export async function migrateFromAsyncStorage(): Promise<{
 
       // 4. 요가 세션 마이그레이션
       if (yogaStore?.sessions && yogaStore.sessions.length > 0) {
-        console.log(`[Migration] Migrating ${yogaStore.sessions.length} sessions...`)
+        if (__DEV__) { console.log(`[Migration] Migrating ${yogaStore.sessions.length} sessions...`) }
 
         for (const legacySession of yogaStore.sessions) {
           const sessionDate = new Date(legacySession.date).getTime()
@@ -235,8 +235,8 @@ export async function migrateFromAsyncStorage(): Promise<{
     // 마이그레이션 완료 표시
     await AsyncStorage.setItem(MIGRATION_COMPLETED_KEY, 'true')
 
-    console.log(`[Migration] Completed successfully!`)
-    console.log(`[Migration] Sessions: ${sessionsCount}, Sequences: ${sequencesCount}, Favorites: ${favoritesCount}`)
+    if (__DEV__) { console.log(`[Migration] Completed successfully!`) }
+    if (__DEV__) { console.log(`[Migration] Sessions: ${sessionsCount}, Sequences: ${sequencesCount}, Favorites: ${favoritesCount}`) }
 
     return {
       success: true,
@@ -259,5 +259,5 @@ export async function migrateFromAsyncStorage(): Promise<{
 // 마이그레이션 상태 초기화 (개발용)
 export async function resetMigration(): Promise<void> {
   await AsyncStorage.removeItem(MIGRATION_COMPLETED_KEY)
-  console.log('[Migration] Reset migration status')
+  if (__DEV__) { console.log('[Migration] Reset migration status') }
 }

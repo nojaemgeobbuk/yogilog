@@ -24,7 +24,7 @@ export function useAsanas() {
           await asanas[0].update((record) => {
             record.isFavorite = newValue
           })
-          console.log(`[useAsanas] Toggled favorite for ${englishName}: ${newValue}`)
+          if (__DEV__) { console.log(`[useAsanas] Toggled favorite for ${englishName}: ${newValue}`) }
           return newValue
         } else {
           // 없으면 새로 생성하고 즐겨찾기 설정
@@ -33,7 +33,7 @@ export function useAsanas() {
             asana.isFavorite = true
             setRawTimestamp(asana, 'created_at', Date.now())
           })
-          console.log(`[useAsanas] Created and favorited: ${englishName}`)
+          if (__DEV__) { console.log(`[useAsanas] Created and favorited: ${englishName}`) }
           return true
         }
       })
@@ -150,7 +150,7 @@ export async function getFavoriteAsanaNames(): Promise<string[]> {
       .query(Q.where('is_favorite', Q.eq(true)))
       .fetch()
 
-    console.log(`[useAsanas] Found ${favorites.length} favorite asanas`)
+    if (__DEV__) { console.log(`[useAsanas] Found ${favorites.length} favorite asanas`) }
     return favorites.map((a) => a.englishName)
   } catch (error) {
     console.error('[useAsanas] Failed to get favorite asana names:', error)

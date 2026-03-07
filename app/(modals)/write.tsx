@@ -55,7 +55,6 @@ export default function WriteModal() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState(3);
-  const [location, setLocation] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [asanas, setAsanas] = useState<AsanaRecord[]>([]);
   const [hashtagInput, setHashtagInput] = useState("");

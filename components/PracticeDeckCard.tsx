@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, Image, StyleSheet, Dimensions, Pressable, Linking } from 'react-native';
+import { View, Text, Image, StyleSheet, Dimensions, Pressable } from 'react-native';
 import Animated, {
   interpolate,
   useSharedValue,
@@ -9,8 +9,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Clock, MapPin, Star } from 'lucide-react-native';
-import { format } from 'date-fns';
 import { Colors } from '@/constants/Colors';
+import { formatDateShort, formatDuration } from '@/utils/formatDate';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.75;
@@ -39,45 +39,11 @@ interface PracticeDeckCardProps {
 }
 
 /**
- * 날짜를 '15 OCT' 형식으로 포맷팅
- */
-function formatCardDate(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return format(date, 'd MMM').toUpperCase();
-  } catch {
-    return '';
-  }
-}
-
-/**
- * 수련 시간 포맷팅
- */
-function formatDuration(minutes: number): string {
-  if (minutes >= 60) {
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-  }
-  return `${minutes}m`;
-}
-
-/**
- * 노트에서 URL 추출
- */
-function extractUrls(text: string): string[] {
-  if (!text) return [];
-  const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
-  return text.match(urlRegex) || [];
-}
-
-/**
  * 카드 데크 스타일의 수련 기록 카드
  */
 export function PracticeDeckCard({ item, onPress }: PracticeDeckCardProps) {
   const coverImage = item.images?.[0];
-  const dateText = formatCardDate(item.date);
+  const dateText = formatDateShort(item.date);
   const durationText = formatDuration(item.duration);
   const locationText = item.location || '';
 

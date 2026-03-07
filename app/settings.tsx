@@ -37,7 +37,7 @@ import { exportPracticeLogsToZip, shareZipFile } from "@/utils/exportBackup";
 import { importPracticeLogsFromZip } from "@/utils/importBackup";
 import { practiceLogsCollection, PracticeLog } from "@/database";
 
-const APP_VERSION = "v1.0.0";
+const APP_VERSION = "v1.2.0";
 const KAKAOPAY_URL = "https://qr.kakaopay.com/Ej8RTlEOv9c407721";
 
 // 오픈소스 라이선스 목록
@@ -386,7 +386,7 @@ const SettingsScreenContent = memo(({ practiceLogs }: SettingsScreenContentProps
             <View style={styles.helpSection}>
               <Text style={styles.helpTitle}>수련 기록하기</Text>
               <Text style={styles.helpText}>
-                홈 화면 오른쪽 하단의 + 버튼을 눌러 새로운 수련을 기록할 수 있어요.
+                홈 화면 하단의 '당신의 호흡을 기록하세요' 버튼을 눌러 새로운 수련을 기록할 수 있어요.
                 아사나, 시간, 강도, 사진 등을 추가해보세요.
               </Text>
             </View>
@@ -396,14 +396,6 @@ const SettingsScreenContent = memo(({ practiceLogs }: SettingsScreenContentProps
               <Text style={styles.helpText}>
                 라이브러리 탭에서 다양한 아사나를 살펴보고,
                 각 아사나의 수련 횟수와 성장 레벨을 확인할 수 있어요.
-              </Text>
-            </View>
-
-            <View style={styles.helpSection}>
-              <Text style={styles.helpTitle}>배지 시스템</Text>
-              <Text style={styles.helpText}>
-                꾸준한 수련을 통해 다양한 배지를 획득해보세요!
-                스트릭 유지, 특정 아사나 마스터 등 다양한 도전이 기다리고 있어요.
               </Text>
             </View>
 
