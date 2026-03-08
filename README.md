@@ -1,4 +1,4 @@
-# Yogilog (요기로그)
+# Yogilog (요기로그) `v1.2.0`
 
 키치한 음악 플레이어 UI를 접목한 요가 트래킹 앱. React Native와 Expo로 제작되었습니다.
 
@@ -7,17 +7,16 @@
 ### 🎯 핵심 기능
 - **수련 기록**: 요가 세션을 앨범처럼 기록하고 관리
 - **시퀀스 빌더**: 나만의 요가 시퀀스를 생성하고 저장
-- **배지 시스템**: 다양한 달성 조건으로 배지 획득
 - **아사나 성장 트리**: 아사나별 수련 현황을 시각화
 - **히트맵**: 캘린더 기반 수련 히스토리 시각화
 - **백업/복원**: JSON 형식으로 데이터 내보내기/가져오기
 
 ### 🎨 UI/UX 특징
 - Music Player 스타일 인터페이스
-- Carousel 기반 세션 탐색
+- Carousel 기반 세션 탐색 & 카드 데크 뷰
 - Rich Text Editor 지원
 - 아사나별 커스텀 아이콘 (100+ 아사나)
-- Lotus 애니메이션 & Confetti 효과
+- Lotus 애니메이션 & 호흡 기록 버튼
 
 ---
 
@@ -58,7 +57,6 @@
 - `nativewind`: Tailwind CSS for React Native
 - `react-native-reanimated`: 고성능 애니메이션
 - `react-native-gesture-handler`: 제스처 핸들링
-- `react-native-confetti-cannon`: 배지 축하 효과
 
 ### UI Components
 - `lucide-react-native`: 아이콘 라이브러리
@@ -86,10 +84,10 @@ yogilog/
 ├── app/                          # Expo Router 기반 화면
 │   ├── (tabs)/
 │   │   ├── _layout.tsx          # 탭 네비게이터
-│   │   ├── index.tsx            # 홈 (앨범 플레이리스트)
+│   │   ├── index.tsx            # 홈 (캐러셀 & 앨범 플레이리스트)
 │   │   ├── library.tsx          # 아사나 라이브러리
 │   │   ├── history.tsx          # 캘린더 히스토리
-│   │   └── profile.tsx          # 프로필 & 배지
+│   │   └── profile.tsx          # 프로필 & 성장 트리
 │   ├── (modals)/
 │   │   └── write.tsx            # 세션 작성 모달
 │   ├── session/[id].tsx         # 세션 상세 (Now Playing)
@@ -103,15 +101,17 @@ yogilog/
 │   ├── AsanaHeatmap.tsx         # 아사나 히트맵
 │   ├── AsanaIcon.tsx            # 아사나 아이콘 렌더러
 │   ├── AsanaInput.tsx           # 아사나 자동완성 입력
-│   ├── BadgeCelebrationModal.tsx # 배지 획득 축하 모달
 │   ├── Carousel.tsx             # 커버플로우 캐러셀
+│   ├── LotusAnimation.tsx       # 로터스 애니메이션
 │   ├── LotusSplash.tsx          # 로터스 스플래시 애니메이션
 │   ├── PracticeDeckCard.tsx     # 수련 덱 카드
 │   ├── RichTextEditor.tsx       # 리치 텍스트 에디터
+│   ├── SaveSequenceModal.tsx    # 시퀀스 저장 모달
 │   ├── SequenceBuilderBar.tsx   # 시퀀스 빌더 바
 │   ├── SequenceCard.tsx         # 시퀀스 카드
 │   ├── SessionCard.tsx          # 세션 카드
-│   └── ShareCard.tsx            # 공유용 카드
+│   ├── ShareCard.tsx            # 공유용 카드
+│   └── SkeletonCard.tsx         # 로딩 스켈레톤 카드
 │
 ├── database/                     # WatermelonDB 설정
 │   ├── models/
@@ -128,7 +128,6 @@ yogilog/
 ├── hooks/                        # 커스텀 훅
 │   ├── useAsanaGrowthLevel.ts   # 아사나 성장 레벨 계산
 │   ├── useAsanaHeatmap.ts       # 히트맵 데이터
-│   ├── useBadgeObserver.ts      # 배지 획득 감지
 │   ├── useObservable.ts         # WatermelonDB Observable 훅
 │   ├── usePracticeLogs.ts       # 수련 기록 CRUD
 │   ├── useSequences.ts          # 시퀀스 CRUD
@@ -141,7 +140,6 @@ yogilog/
 ├── constants/
 │   ├── AsanaDB.ts               # 100+ 아사나 데이터베이스
 │   ├── AsanaDefinitions.ts      # 아사나 정의 & 카테고리
-│   ├── Badges.ts                # 배지 정의 & 조건
 │   └── Colors.ts                # 테마 컬러
 │
 ├── utils/
@@ -168,7 +166,7 @@ yogilog/
 | `/` | `app/(tabs)/index.tsx` | 홈 - 앨범 플레이리스트 |
 | `/library` | `app/(tabs)/library.tsx` | 아사나 라이브러리 (카테고리별) |
 | `/history` | `app/(tabs)/history.tsx` | 캘린더 히스토리 & 히트맵 |
-| `/profile` | `app/(tabs)/profile.tsx` | 프로필, 배지, 성장 트리 |
+| `/profile` | `app/(tabs)/profile.tsx` | 프로필 & 성장 트리 |
 | `/session/[id]` | `app/session/[id].tsx` | 세션 상세 (Now Playing) |
 | `/library/[asanaName]` | `app/library/[asanaName].tsx` | 아사나 상세 페이지 |
 | `/edit/[id]` | `app/edit/[id].tsx` | 세션 수정 |
@@ -232,21 +230,6 @@ yogilog/
   sequenceAsanas: SequenceAsana[]
 }
 ```
-
-### Badge System (배지 시스템)
-배지는 다음 조건으로 획득:
-- `total_sessions`: 누적 세션 횟수
-- `total_minutes`: 누적 수련 시간
-- `streak_days`: 연속 수련일
-- `asana_count`: 고유 아사나 수
-- `specific_asana`: 특정 아사나 수행 횟수
-- `high_intensity`: 고강도 세션 횟수
-- `early_bird`: 아침 수련 횟수
-- `night_owl`: 저녁 수련 횟수
-- `long_session`: 60분+ 세션 횟수
-- `favorite_count`: 즐겨찾기 세션 수
-
-배지 티어: Bronze → Silver → Gold → Platinum
 
 ---
 
@@ -331,14 +314,8 @@ node scripts/check-asana-mismatch.js
 - 레벨 시스템 (Seed → Sprout → Sapling → Tree → Forest)
 - 각 아사나별 성장 현황 확인
 
-### 4. 배지 시스템 (Achievements)
-- 실시간 배지 달성 감지
-- Confetti 애니메이션 효과
-- 배지 컬렉션 뷰
-
-### 5. 데이터 백업/복원
-- JSON 형식으로 전체 데이터 내보내기
-- ZIP 압축 지원
+### 4. 데이터 백업/복원
+- JSON 형식으로 전체 데이터 내보내기 (ZIP)
 - 다른 디바이스로 데이터 이동 가능
 
 ---

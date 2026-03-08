@@ -35,7 +35,6 @@
 - `@nozbe/simdjson`: 고성능 JSON 파서 (WatermelonDB 필수)
 - `lucide-react-native`: 아이콘 라이브러리
 - `react-native-pell-rich-editor`: Rich Text Editor
-- `react-native-confetti-cannon`: 배지 축하 효과
 - `expo-image-picker`: 이미지 선택
 - `react-native-view-shot`: 화면 캡처
 - `jszip`: 백업 파일 압축
@@ -82,25 +81,24 @@
 - **useAsanaGrowthLevel.ts**: 아사나별 성장 레벨 계산
   - 수행 횟수 → 레벨 매핑 (Seed, Sprout, Sapling, Tree, Forest)
 
-- **useBadgeObserver.ts**: 배지 달성 감지 & 자동 모달 표시
-
 ### 주요 컴포넌트 (`components/`)
 - **AsanaIcon.tsx**: 아사나 아이콘 렌더러 (PNG 기반, 100+ 아이콘)
 - **AsanaGrowthTree.tsx**: 아사나 성장 트리 시각화
-- **BadgeCelebrationModal.tsx**: 배지 획득 축하 모달 (Confetti 효과)
 - **SequenceBuilderBar.tsx**: 시퀀스 빌더 하단 바
 - **RichTextEditor.tsx**: HTML 기반 리치 텍스트 에디터
 - **Carousel.tsx**: 커버플로우 스타일 캐러셀
 - **LotusSplash.tsx**: 로터스 로딩 애니메이션
+- **PracticeDeckCard.tsx**: 카드 데크 스타일 수련 기록 카드
+- **AlbumPlaylist.tsx**: 앨범 스타일 세션 리스트
+- **ShareCard.tsx**: 공유용 카드
+- **SkeletonCard.tsx**: 로딩 스켈레톤 카드
 
 ### 상수 (`constants/`)
 - **AsanaDB.ts**: 100+ 아사나 데이터베이스 (이름, 카테고리, 난이도 등)
 - **AsanaDefinitions.ts**: 아사나 카테고리 & 정의
-- **Badges.ts**: 배지 조건 & 정의 (25+ 배지)
 - **Colors.ts**: 앱 테마 컬러 팔레트
 
 ### 유틸리티 (`utils/`)
-- **achievements.ts**: 배지 달성 조건 체크 로직
 - **exportBackup.ts**: 전체 데이터 JSON 내보내기 (ZIP)
 - **importBackup.ts**: 백업 파일에서 데이터 복원
 - **formatDate.ts**: 날짜 포맷팅 유틸리티
@@ -172,17 +170,12 @@ try {
 - **아이콘**: `assets/images/asana-icons/` 폴더에 PNG 파일 추가 (산스크리트 이름.png)
 - **체크**: `node scripts/check-asana-mismatch.js` 실행하여 아이콘 누락 확인
 
-### 2. 배지 추가
-- **위치**: `constants/Badges.ts`의 `BADGE_DB` 배열에 추가
-- **조건**: `BadgeCondition` 타입에 맞게 정의
-- **로직**: `utils/achievements.ts`에서 조건 체크 로직 구현
-
-### 3. DB 스키마 변경
+### 2. DB 스키마 변경
 1. `database/schema.ts` 수정
-2. `database/migrations.ts`에 마이그레이션 추가
+2. `database/migration.ts`에 마이그레이션 추가
 3. 버전 번호 증가
 
-### 4. 새 화면 추가
+### 3. 새 화면 추가
 - **라우트**: `app/` 폴더에 파일 생성 (Expo Router 자동 인식)
 - **탭**: `app/(tabs)/_layout.tsx`에 탭 정의
 - **모달**: `app/(modals)/` 폴더 사용
@@ -211,14 +204,14 @@ try {
 ## 📝 Memory & Documentation
 
 ### 주요 변경사항 기록
-- 새로운 주요 기능을 구현하거나 아키텍처를 변경하면 `serena.create_memory`를 통해 기록을 남겨라.
+- 새로운 주요 기능을 구현하거나 아키텍처를 변경하면 `CLAUDE.md`와 `README.md`를 업데이트하라.
 - 예시:
-  - "Added Badge System with 25+ achievements"
-  - "Migrated from Zustand to WatermelonDB for data persistence"
+  - "Migrated from AsyncStorage to WatermelonDB for data persistence"
   - "Implemented Asana Growth Tree visualization"
+  - "Added Carousel-based home with lotus breath-in button"
 
 ### 문서화 우선순위
-1. 복잡한 로직 (배지 계산, 성장 레벨 등)
+1. 복잡한 로직 (성장 레벨 계산 등)
 2. DB 스키마 변경
 3. 새로운 의존성 추가
 4. API 변경사항
